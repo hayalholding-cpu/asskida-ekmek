@@ -4,11 +4,15 @@ const express = require("express");
 const cors = require("cors");
 const admin = require("firebase-admin");
 
-const serviceAccount = require("./serviceAccountKey.json");
+const firebaseServiceAccount = {
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
+};
 
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
+    credential: admin.credential.cert(firebaseServiceAccount),
   });
 }
 
@@ -20,13 +24,7 @@ const PORT = process.env.PORT || 4000;
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://127.0.0.1:5173",
-      "http://192.168.1.104:5173",
-      "http://192.168.1.104:8081",
-      "exp://192.168.1.104:8081",
-    ],
+    origin: true,
     credentials: true,
   })
 );
