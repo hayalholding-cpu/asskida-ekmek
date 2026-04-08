@@ -1991,7 +1991,125 @@ app.post("/admin/migrate-bakeries-apply", async (req, res) => {
 /* =========================================
    START
 ========================================= */
+/* =========================================
+   FIRIN BUGÜN ÖZETİ
+   GET /baker/:uid/today-summary
+========================================= */
+app.get("/baker/:uid/today-summary", async (req, res) => {
+  try {
+    const rawUid = cleanText(req.params.uid);
 
+    if (!rawUid) {
+      return res.status(400).json({
+        success: false,
+        message: "Geçersiz fırın uid bilgisi.",
+      });
+    }
+
+    let bakeryId = rawUid;
+    let bakeryData = null;
+
+    const bakeryRef = db.collection("bakeries").doc(rawUid);
+    const bakerySnap = await bakeryRef.get();
+
+    if (bakerySnap.exists) {
+      bakeryId = bakerySnap.id;
+      bakeryData = bakerySnap.data() || {};
+    } else {
+      const q = await db
+        .collection("bakeries")
+        .where("uid", "==", rawUid)
+        .limit(1)
+        .get();
+
+      if (q.empty) {
+        return res.status(404).json({
+          success: false,
+          message: "Fırın bulunamadı.",
+        });
+      }
+
+      const foundDoc = q.docs[0];
+      bakeryId = foundDoc.id;
+      bakeryData = foundDoc.data() || {};
+    }
+
+    const today = todayStr();
+    const deliveryDocId = `${bakeryId}_${today}`;
+
+    let todayGivenEkmek = 0;
+    let todayGivenPide = 0;
+
+    const dailyRef = db.collection("deliveries_daily").doc(deliveryDocId);
+    const dailySnap = await dailyRef.get();
+
+    if (dailySnap.exists) {
+      const dailyData = dailySnap.data() || {};
+
+      todayGivenEkmek = safeNumber(
+        dailyData.ekmek ??
+          dailyData.givenEkmek ??
+          dailyData.deliveredEkmek ??
+          0
+      );
+
+      todayGivenPide = safeNumber(
+        dailyData.pide ??
+          dailyData.givenPide ??
+          dailyData.deliveredPide ??
+          0
+      );
+    } else {
+      const txSnap = await db
+        .collection("bakery_transactions")
+        .where("bakeryId", "==", bakeryId)
+        .where("dateKey", "==", today)
+        .get();
+
+      txSnap.forEach((doc) => {
+        const tx = doc.data() || {};
+        const type = cleanText(tx.type).toLowerCase();
+        const productType = cleanText(tx.productType).toLowerCase();
+        const qty = safeNumber(tx.quantity, 0);
+
+        const isDeliveryType =
+          type === "askidan-ekmek-verildi" ||
+          type === "askidan-pide-verildi" ||
+          type === "askidan-dus" ||
+          type === "askidan-düştü" ||
+          type === "askidan-dusuldu";
+
+        if (!isDeliveryType) return;
+
+        if (productType === "ekmek") {
+          todayGivenEkmek += qty;
+        } else if (productType === "pide") {
+          todayGivenPide += qty;
+        }
+      });
+    }
+
+    return res.json({
+      success: true,
+      bakeryId,
+      uid: bakeryData?.uid || rawUid,
+      date: today,
+      todayGivenEkmek,
+      todayGivenPide,
+      pendingEkmek: safeNumber(bakeryData?.pendingEkmek, 0),
+      pendingPide: safeNumber(bakeryData?.pendingPide, 0),
+      deliveredEkmek: safeNumber(bakeryData?.deliveredEkmek, 0),
+      deliveredPide: safeNumber(bakeryData?.deliveredPide, 0),
+    });
+  } catch (error) {
+    console.error("today-summary error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Bugün özeti alınamadı.",
+      error: error.message,
+    });
+  }
+});
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });
