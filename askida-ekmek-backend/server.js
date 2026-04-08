@@ -1,3 +1,4 @@
+console.log("SERVER VERSION: 123");
 require("dotenv").config();
 
 const express = require("express");
