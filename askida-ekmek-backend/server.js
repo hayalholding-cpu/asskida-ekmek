@@ -1502,15 +1502,20 @@ app.put("/baker/:uid/products", async (req, res) => {
    BAKER TRANSACTIONS
 ========================================= */
 
-app.get("/baker/:uid/transactions", async (req, res) => {
-  try {
-    const { uid } = req.params;
+app.get("/baker/:uid/transactions", async (...) => {
+  ...
+});
 
-    if (!uid) {
-      return res.status(400).json({
-        ok: false,
-        message: "Fırın uid gerekli",
-      });
+
+// 🔥 BURAYA YAPIŞTIR
+app.get("/baker/:uid/today-summary", async (req, res) => {
+  ...
+});
+
+
+/* =========================================
+   ADMIN TRANSACTIONS
+========================================= */
     }
 
     const bakery = await findBakeryByUid(uid);
