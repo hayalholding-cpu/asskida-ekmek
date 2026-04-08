@@ -114,44 +114,51 @@ export default function PaymentScreen() {
           <Text style={styles.subtitle}>Ekmek bırakma işlemini tamamla</Text>
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Sipariş Özeti</Text>
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{summary.count} adet</Text>
-            </View>
-          </View>
+        <View style={styles.contentArea}>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Sipariş Özeti</Text>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Fırın</Text>
-            <Text style={styles.infoValue} numberOfLines={1} ellipsizeMode="tail">
-              {summary.bakeryName}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Ürün</Text>
-            <Text style={styles.infoValue} numberOfLines={1}>
-              {summary.productType}
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Adet</Text>
-            <Text style={styles.infoValue}>{summary.count}</Text>
-          </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.totalBox}>
-            <View>
-              <Text style={styles.totalLabel}>Toplam</Text>
-              <Text style={styles.totalHint}>Ödenecek tutar</Text>
+              <View style={styles.countBadge}>
+                <Text style={styles.countBadgeText}>{summary.count} adet</Text>
+              </View>
             </View>
 
-            <Text style={styles.totalPrice}>
-              {formatPrice(summary.totalPrice)}
-            </Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Fırın</Text>
+              <Text
+                style={styles.infoValue}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {summary.bakeryName}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Ürün</Text>
+              <Text style={styles.infoValue} numberOfLines={2}>
+                {summary.productType}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Adet</Text>
+              <Text style={styles.infoValue}>{summary.count}</Text>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.totalBox}>
+              <View style={styles.totalTextWrap}>
+                <Text style={styles.totalLabel}>Toplam</Text>
+                <Text style={styles.totalHint}>Ödenecek tutar</Text>
+              </View>
+
+              <Text style={styles.totalPrice}>
+                {formatPrice(summary.totalPrice)}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -221,28 +228,34 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    backgroundColor: "#F7F2EA",
+    paddingHorizontal: 18,
+    paddingTop: 8,
     paddingBottom: 14,
-    justifyContent: "space-between",
   },
 
   headerArea: {
-    gap: 4,
     marginTop: 2,
+    marginBottom: 14,
   },
 
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "900",
     color: "#2B1208",
-    letterSpacing: -0.6,
+    letterSpacing: -0.4,
   },
 
   subtitle: {
+    marginTop: 4,
     fontSize: 14,
     lineHeight: 20,
     color: "#7A675E",
+  },
+
+  contentArea: {
+    flex: 1,
+    justifyContent: "center",
   },
 
   card: {
@@ -257,23 +270,22 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 3,
-    gap: 14,
-    marginTop: 10,
   },
 
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginBottom: 14,
     gap: 10,
   },
 
   cardTitle: {
-    fontSize: 20,
+    flex: 1,
+    fontSize: 19,
     fontWeight: "900",
     color: "#2B1208",
-    letterSpacing: -0.4,
-    flex: 1,
+    letterSpacing: -0.3,
   },
 
   countBadge: {
@@ -291,30 +303,34 @@ const styles = StyleSheet.create({
 
   infoRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    paddingVertical: 8,
     gap: 12,
   },
 
   infoLabel: {
-    fontSize: 15,
+    width: "34%",
+    fontSize: 14,
     fontWeight: "600",
     color: "#8A7A72",
-    flex: 1,
+    paddingTop: 2,
   },
 
   infoValue: {
-    fontSize: 18,
+    width: "66%",
+    fontSize: 17,
     fontWeight: "800",
     color: "#2B1208",
     textAlign: "right",
-    flex: 1.4,
+    lineHeight: 24,
   },
 
   divider: {
     height: 1,
     backgroundColor: "#EFE3D6",
-    marginVertical: 2,
+    marginTop: 4,
+    marginBottom: 12,
   },
 
   totalBox: {
@@ -328,8 +344,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
+  totalTextWrap: {
+    flex: 1,
+    paddingRight: 10,
+  },
+
   totalLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "800",
     color: "#9A6A1F",
     marginBottom: 2,
@@ -342,19 +363,19 @@ const styles = StyleSheet.create({
   },
 
   totalPrice: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: "900",
     color: "#D97A00",
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
   },
 
   bottomArea: {
+    paddingTop: 14,
     gap: 8,
-    marginTop: 12,
   },
 
   payButton: {
-    minHeight: 52,
+    minHeight: 54,
     borderRadius: 16,
     backgroundColor: "#D97A00",
     alignItems: "center",

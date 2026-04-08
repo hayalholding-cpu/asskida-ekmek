@@ -26,7 +26,6 @@ import {
 
 const ISTANBUL_CITY_CODE = 34;
 const FALLBACK_CITY_CODE = 0;
-const ISTANBUL_CITY_SLUG = "istanbul";
 
 type DistrictDoc = {
   id: string;
@@ -103,9 +102,7 @@ function normalizeArray(data: any, keys: string[]) {
 }
 
 function mapDistrict(item: any): DistrictDoc {
-  const districtName = String(
-    item?.districtName ?? item?.name ?? ""
-  ).trim();
+  const districtName = String(item?.districtName ?? item?.name ?? "").trim();
 
   const slug =
     String(item?.slug ?? item?.districtSlug ?? "").trim() ||
@@ -346,8 +343,6 @@ export default function UrunBirak() {
           }
         }
 
-        console.log("MOBILE DISTRICTS RESPONSE:", data);
-
         const clean: DistrictDoc[] = rawList
           .map((x: any) => mapDistrict(x))
           .filter((x: DistrictDoc) => x.slug && x.districtName)
@@ -361,7 +356,7 @@ export default function UrunBirak() {
           setDistricts(clean);
           setDistrictSlug((prev) => prev || clean[0]?.slug || "");
         }
-      } catch (e: any) {
+      } catch (e) {
         console.log("İlçeler yüklenirken hata:", e);
         if (!cancelled) {
           setErr("İlçeler şu anda yüklenemedi. Lütfen tekrar deneyin.");
@@ -398,7 +393,7 @@ export default function UrunBirak() {
           setProducts(clean);
           setProductId((prev) => prev || clean[0]?.id || "");
         }
-      } catch (e: any) {
+      } catch (e) {
         console.log("Ürünler yüklenirken hata:", e);
         if (!cancelled) {
           setErr("Ürünler şu anda yüklenemedi. Lütfen tekrar deneyin.");
@@ -413,173 +408,173 @@ export default function UrunBirak() {
     };
   }, []);
 
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  (async () => {
-    if (!districtSlug) {
-      setNeighborhoods([]);
-      setDistrictBakeries([]);
+    (async () => {
+      if (!districtSlug) {
+        setNeighborhoods([]);
+        setDistrictBakeries([]);
+        setNeighborhoodSlug("");
+        setBakeryId("");
+        return;
+      }
+
       setNeighborhoodSlug("");
       setBakeryId("");
-      return;
-    }
+      lastPopupNeighborhoodRef.current = "";
 
-    setNeighborhoodSlug("");
-    setBakeryId("");
-    lastPopupNeighborhoodRef.current = "";
-
-    setErr("");
-    setLoadingNeighborhoods(true);
-    setLoadingBakeries(true);
-
-    try {
-      const districtCode =
-        selectedDistrict?.districtCode ||
-        safeNumber(selectedDistrict?.id, 0) ||
-        undefined;
-
-      const districtName = String(selectedDistrict?.districtName || "").trim();
-
-      let neighborhoodData: any = { neighborhoods: [] };
-      let districtBakeryData: any = { bakeries: [] };
-      let cityBakeryData: any = { bakeries: [] };
+      setErr("");
+      setLoadingNeighborhoods(true);
+      setLoadingBakeries(true);
 
       try {
-  if (districtSlug) {
-    neighborhoodData = await API.mobileNeighborhoods(districtSlug);
-  }
-} catch (e) {
-  console.log("Mahalle endpoint hatası:", e);
-}
+        const districtCode =
+          selectedDistrict?.districtCode ||
+          safeNumber(selectedDistrict?.id, 0) ||
+          undefined;
 
-      try {
-        districtBakeryData = await API.mobileBakeries({
-          cityCode: ISTANBUL_CITY_CODE,
-          ...(districtCode ? { districtCode } : {}),
+        const districtName = String(selectedDistrict?.districtName || "").trim();
+
+        let neighborhoodData: any = { neighborhoods: [] };
+        let districtBakeryData: any = { bakeries: [] };
+        let cityBakeryData: any = { bakeries: [] };
+
+        try {
+          if (districtSlug) {
+            neighborhoodData = await API.mobileNeighborhoods(districtSlug);
+          }
+        } catch (e) {
+          console.log("Mahalle endpoint hatası:", e);
+        }
+
+        try {
+          districtBakeryData = await API.mobileBakeries({
+            cityCode: ISTANBUL_CITY_CODE,
+            ...(districtCode ? { districtCode } : {}),
+          });
+        } catch (e) {
+          console.log("İlçeye özel fırın endpoint hatası:", e);
+        }
+
+        try {
+          cityBakeryData = await API.mobileBakeries({
+            cityCode: ISTANBUL_CITY_CODE,
+          });
+        } catch (e) {
+          console.log("Şehir geneli fırın endpoint hatası:", e);
+        }
+
+        const rawNeighborhoods = normalizeArray(neighborhoodData, [
+          "neighborhoods",
+          "items",
+        ]);
+
+        const rawDistrictBakeries = normalizeArray(districtBakeryData, [
+          "bakeries",
+          "items",
+        ]);
+
+        const rawCityBakeries = normalizeArray(cityBakeryData, [
+          "bakeries",
+          "items",
+        ]);
+
+        const mergedRawBakeries = [...rawDistrictBakeries, ...rawCityBakeries];
+
+        const bakeryMap = new Map<string, BakeryDoc>();
+
+        mergedRawBakeries.forEach((item: any) => {
+          const b = mapBakery(item);
+
+          if (!b.id || !b.isActive) return;
+
+          const bakeryDistrictSlug =
+            String(b.districtSlug || "").trim() ||
+            toSlug(String(b.district || "").trim());
+
+          const matchesDistrict =
+            (districtCode && b.districtCode === districtCode) ||
+            bakeryDistrictSlug === districtSlug ||
+            toSlug(String(b.district || "").trim()) === districtSlug;
+
+          if (!matchesDistrict) return;
+
+          bakeryMap.set(b.id, b);
         });
-      } catch (e) {
-        console.log("İlçeye özel fırın endpoint hatası:", e);
-      }
 
-      try {
-        cityBakeryData = await API.mobileBakeries({
-          cityCode: ISTANBUL_CITY_CODE,
+        const bakeryList = Array.from(bakeryMap.values()).sort((a, b) => {
+          const neighborhoodCompare = String(a.neighborhood || "").localeCompare(
+            String(b.neighborhood || ""),
+            "tr"
+          );
+
+          if (neighborhoodCompare !== 0) return neighborhoodCompare;
+
+          return String(a.bakeryName || a.name || "").localeCompare(
+            String(b.bakeryName || b.name || ""),
+            "tr"
+          );
         });
-      } catch (e) {
-        console.log("Şehir geneli fırın endpoint hatası:", e);
-      }
 
-      const rawNeighborhoods = normalizeArray(neighborhoodData, [
-        "neighborhoods",
-        "items",
-      ]);
+        const apiNeighborhoods: NeighborhoodDoc[] = rawNeighborhoods
+          .map((x: any) => mapNeighborhood(x, districtSlug))
+          .filter((x: NeighborhoodDoc) => !!x.neighborhoodName && !!x.slug);
 
-      const rawDistrictBakeries = normalizeArray(districtBakeryData, [
-        "bakeries",
-        "items",
-      ]);
-
-      const rawCityBakeries = normalizeArray(cityBakeryData, [
-        "bakeries",
-        "items",
-      ]);
-
-      const mergedRawBakeries = [...rawDistrictBakeries, ...rawCityBakeries];
-
-      const bakeryMap = new Map<string, BakeryDoc>();
-
-      mergedRawBakeries.forEach((item: any) => {
-        const b = mapBakery(item);
-
-        if (!b.id || !b.isActive) return;
-
-        const bakeryDistrictSlug =
-          String(b.districtSlug || "").trim() ||
-          toSlug(String(b.district || "").trim());
-
-        const matchesDistrict =
-          (districtCode && b.districtCode === districtCode) ||
-          bakeryDistrictSlug === districtSlug ||
-          toSlug(String(b.district || "").trim()) === districtSlug;
-
-        if (!matchesDistrict) return;
-
-        bakeryMap.set(b.id, b);
-      });
-
-      const bakeryList = Array.from(bakeryMap.values()).sort((a, b) => {
-        const neighborhoodCompare = String(a.neighborhood || "").localeCompare(
-          String(b.neighborhood || ""),
-          "tr"
-        );
-
-        if (neighborhoodCompare !== 0) return neighborhoodCompare;
-
-        return String(a.bakeryName || a.name || "").localeCompare(
-          String(b.bakeryName || b.name || ""),
-          "tr"
-        );
-      });
-
-      const apiNeighborhoods: NeighborhoodDoc[] = rawNeighborhoods
-        .map((x: any) => mapNeighborhood(x, districtSlug))
-        .filter((x: NeighborhoodDoc) => !!x.neighborhoodName && !!x.slug);
-
-      const bakeryNeighborhoods = buildNeighborhoodsFromBakeries(
-        bakeryList,
-        districtSlug,
-        districtName
-      );
-
-      let cleanNeighborhoods = mergeNeighborhoodLists(
-        apiNeighborhoods,
-        bakeryNeighborhoods,
-        districtSlug,
-        districtName
-      );
-
-      if (cleanNeighborhoods.length === 0 && bakeryList.length > 0) {
-        cleanNeighborhoods = buildNeighborhoodsFromBakeries(
+        const bakeryNeighborhoods = buildNeighborhoodsFromBakeries(
           bakeryList,
           districtSlug,
           districtName
         );
-      }
 
-      if (!cancelled) {
-        setNeighborhoods(cleanNeighborhoods);
-        setDistrictBakeries(bakeryList);
+        let cleanNeighborhoods = mergeNeighborhoodLists(
+          apiNeighborhoods,
+          bakeryNeighborhoods,
+          districtSlug,
+          districtName
+        );
 
-        if (cleanNeighborhoods.length === 0) {
-          const msg =
-            "Bu ilçede henüz mahalle ve fırın kaydı bulunmuyor. En kısa sürede eklenecektir.";
-          setNoBakeryMessage(msg);
-          setShowNoBakeryModal(true);
+        if (cleanNeighborhoods.length === 0 && bakeryList.length > 0) {
+          cleanNeighborhoods = buildNeighborhoodsFromBakeries(
+            bakeryList,
+            districtSlug,
+            districtName
+          );
+        }
+
+        if (!cancelled) {
+          setNeighborhoods(cleanNeighborhoods);
+          setDistrictBakeries(bakeryList);
+
+          if (cleanNeighborhoods.length === 0) {
+            const msg =
+              "Bu ilçede henüz mahalle ve fırın kaydı bulunmuyor. En kısa sürede eklenecektir.";
+            setNoBakeryMessage(msg);
+            setShowNoBakeryModal(true);
+          }
+        }
+      } catch (e) {
+        console.log("Mahalle/fırın verisi yüklenirken hata:", e);
+
+        if (!cancelled) {
+          setErr(
+            "Mahalle ve fırın bilgileri şu anda getirilemedi. Lütfen tekrar deneyin."
+          );
+          setNeighborhoods([]);
+          setDistrictBakeries([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingNeighborhoods(false);
+          setLoadingBakeries(false);
         }
       }
-    } catch (e: any) {
-      console.log("Mahalle/fırın verisi yüklenirken hata:", e);
+    })();
 
-      if (!cancelled) {
-        setErr(
-          "Mahalle ve fırın bilgileri şu anda getirilemedi. Lütfen tekrar deneyin."
-        );
-        setNeighborhoods([]);
-        setDistrictBakeries([]);
-      }
-    } finally {
-      if (!cancelled) {
-        setLoadingNeighborhoods(false);
-        setLoadingBakeries(false);
-      }
-    }
-  })();
-
-  return () => {
-    cancelled = true;
-  };
-}, [districtSlug, selectedDistrict?.districtCode, selectedDistrict?.districtName]);
+    return () => {
+      cancelled = true;
+    };
+  }, [districtSlug, selectedDistrict?.districtCode, selectedDistrict?.districtName]);
 
   useEffect(() => {
     setBakeryId("");
@@ -593,9 +588,7 @@ useEffect(() => {
     if (filteredBakeries.length === 0) {
       const normalizedSelected = String(neighborhoodSlug).trim();
 
-      if (lastPopupNeighborhoodRef.current === normalizedSelected) {
-        return;
-      }
+      if (lastPopupNeighborhoodRef.current === normalizedSelected) return;
 
       lastPopupNeighborhoodRef.current = normalizedSelected;
 
@@ -690,12 +683,10 @@ useEffect(() => {
         params: {
           bakeryId: String(selectedBakery.id || ""),
           bakeryName: bakeryDisplayName,
-
           productId: String(selectedProduct.id || ""),
           productType: productDisplayName,
           count: String(productCount),
           totalPrice: String(totalPrice),
-
           district: String(
             selectedDistrict?.districtName || selectedBakery.district || ""
           ),
@@ -705,7 +696,6 @@ useEffect(() => {
               "-"
           ),
           productPrice: String(selectedProduct.price || 0),
-
           firin: bakeryDisplayName,
           ilce: String(
             selectedDistrict?.districtName || selectedBakery.district || ""
@@ -718,7 +708,6 @@ useEffect(() => {
           total: String(totalPrice),
           productName: productDisplayName,
           productCount: String(productCount),
-
           ekmek: productDisplayName.toLowerCase().includes("ekmek")
             ? String(productCount)
             : "0",
@@ -727,7 +716,7 @@ useEffect(() => {
             : "0",
         },
       });
-    } catch (e: any) {
+    } catch (e) {
       console.log("Ödeme sayfasına geçiş hatası:", e);
       const msg = "Ödeme sayfasına geçilemedi. Lütfen tekrar deneyin.";
       setErr(msg);
@@ -826,7 +815,7 @@ useEffect(() => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroCard}>
-          <View style={styles.heroBadgeRow}>
+          <View style={styles.heroTopRow}>
             <View style={styles.heroBadge}>
               <Ionicons
                 name="storefront-outline"
@@ -835,11 +824,21 @@ useEffect(() => {
               />
               <Text style={styles.heroBadgeText}>ANLAŞMALI FIRIN</Text>
             </View>
+
+            <View style={styles.heroInfoBadge}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={14}
+                color={COLORS.successDark}
+              />
+              <Text style={styles.heroInfoBadgeText}>Güvenli işlem</Text>
+            </View>
           </View>
 
-          <Text style={styles.h1}>ASKIYA EKMEK BIRAK</Text>
+          <Text style={styles.h1}>ÜRÜN BIRAK</Text>
           <Text style={styles.subText}>
-            İlçeni seç, mahalleni belirle, fırınını seç ve kolayca bırak.
+            İlçeni seç, mahalleni belirle, fırınını ve ürününü seç. Ardından
+            ödeme adımına güvenle geç.
           </Text>
         </View>
 
@@ -850,13 +849,18 @@ useEffect(() => {
         ) : null}
 
         <SectionCard
-          title="İLÇE SEÇ"
+          title="BÖLGE SEÇİMİ"
           rightContent={
             <View style={styles.miniPill}>
               <Text style={styles.miniPillText}>1. adım</Text>
             </View>
           }
         >
+          <Text style={styles.helperText}>
+            Önce ilçe, ardından mahalle seçerek sana uygun anlaşmalı fırınları
+            görüntüle.
+          </Text>
+
           <Text style={styles.label}>İlçe</Text>
           <View style={styles.pickerBox}>
             <Picker
@@ -867,7 +871,7 @@ useEffect(() => {
             >
               {districts.length === 0 ? (
                 <Picker.Item
-                  label={loadingDistricts ? "Yükleniyor..." : "İlçe yok"}
+                  label={loadingDistricts ? "İlçeler yükleniyor..." : "İlçe yok"}
                   value=""
                 />
               ) : (
@@ -881,21 +885,8 @@ useEffect(() => {
               )}
             </Picker>
           </View>
-        </SectionCard>
 
-        <SectionCard
-          title="MAHALLE SEÇ"
-          rightContent={
-            <View style={styles.miniPill}>
-              <Text style={styles.miniPillText}>2. adım</Text>
-            </View>
-          }
-        >
-          <Text style={styles.helperText}>
-            İlçeyi seçtikten sonra mahalle seçilir. Seçilen mahallede aktif fırın
-            yoksa bilgilendirme mesajı açılır.
-          </Text>
-
+          <Text style={styles.label}>Mahalle</Text>
           <View style={styles.pickerBox}>
             <Picker
               selectedValue={neighborhoodSlug}
@@ -908,7 +899,7 @@ useEffect(() => {
                   !districtSlug
                     ? "Önce ilçe seç"
                     : loadingNeighborhoods
-                    ? "Yükleniyor..."
+                    ? "Mahalleler yükleniyor..."
                     : neighborhoods.length
                     ? "Mahalle seç"
                     : "Mahalle bulunamadı"
@@ -927,15 +918,15 @@ useEffect(() => {
         </SectionCard>
 
         <SectionCard
-          title="FIRIN SEÇ"
+          title="FIRIN SEÇİMİ"
           rightContent={
             <View style={styles.miniPill}>
-              <Text style={styles.miniPillText}>3. adım</Text>
+              <Text style={styles.miniPillText}>2. adım</Text>
             </View>
           }
         >
           <Text style={styles.helperText}>
-            Mahalleyi seçtiğinde, o mahalledeki aktif fırınlar listelenir.
+            Seçtiğin mahallede aktif olan fırınlar burada listelenir.
           </Text>
 
           <TouchableOpacity
@@ -973,21 +964,20 @@ useEffect(() => {
             <Text style={styles.customSelectText}>
               {selectedBakery?.bakeryName || selectedBakery?.name || "Fırın seç"}
             </Text>
-
             <Ionicons name="chevron-down" size={20} color={COLORS.accent} />
           </TouchableOpacity>
         </SectionCard>
 
         <SectionCard
-          title="ÜRÜN SEÇ"
+          title="ÜRÜN SEÇİMİ"
           rightContent={
             <View style={styles.miniPill}>
-              <Text style={styles.miniPillText}>4. adım</Text>
+              <Text style={styles.miniPillText}>3. adım</Text>
             </View>
           }
         >
           <Text style={styles.helperText}>
-            Admin panelde aktif edilen ürünler burada otomatik görünür.
+            Admin panelde aktif olan ürünler otomatik olarak burada görünür.
           </Text>
 
           <View style={styles.pickerBox}>
@@ -1039,15 +1029,6 @@ useEffect(() => {
               <View style={styles.infoBadgeRow}>
                 <View style={styles.infoBadge}>
                   <Ionicons
-                    name="checkmark-circle"
-                    size={14}
-                    color={COLORS.successDark}
-                  />
-                  <Text style={styles.infoBadgeText}>Aktif fırın</Text>
-                </View>
-
-                <View style={styles.infoBadge}>
-                  <Ionicons
                     name="location-outline"
                     size={14}
                     color={COLORS.accentDark}
@@ -1058,11 +1039,20 @@ useEffect(() => {
                       "Mahalle bilgisi yok"}
                   </Text>
                 </View>
+
+                <View style={styles.infoBadge}>
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={14}
+                    color={COLORS.successDark}
+                  />
+                  <Text style={styles.infoBadgeText}>Aktif fırın</Text>
+                </View>
               </View>
 
               <Text style={styles.selectedBakerySub}>
                 {selectedProduct
-                  ? `${selectedProduct.name} bu fırına bırakılacak.`
+                  ? `${selectedProduct.name} ürünü bu fırına bırakılacak.`
                   : "Ürün seçildiğinde özet burada gösterilir."}
               </Text>
             </>
@@ -1072,10 +1062,10 @@ useEffect(() => {
         </SectionCard>
 
         <SectionCard
-          title="ÜRÜN ADEDİ"
+          title="ÜRÜN ADEDİ VE TUTAR"
           rightContent={
             <View style={styles.miniPill}>
-              <Text style={styles.miniPillText}>5. adım</Text>
+              <Text style={styles.miniPillText}>4. adım</Text>
             </View>
           }
         >
@@ -1151,7 +1141,7 @@ useEffect(() => {
           </View>
 
           <PrimaryButton
-            title={saving ? "YÖNLENDİRİLİYOR..." : "ÖDEMEYE GEÇ"}
+            title={saving ? "ÖDEMEYE YÖNLENDİRİLİYOR..." : "ÖDEMEYE GEÇ"}
             onPress={handleGoPayment}
             loading={saving}
             disabled={saving}
@@ -1173,11 +1163,12 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
 
-  heroBadgeRow: {
+  heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 12,
+    alignItems: "center",
     gap: 8,
+    marginBottom: 12,
   },
 
   heroBadge: {
@@ -1192,6 +1183,22 @@ const styles = StyleSheet.create({
 
   heroBadgeText: {
     ...TYPOGRAPHY.badge,
+  },
+
+  heroInfoBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.successBg,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    gap: 6,
+  },
+
+  heroInfoBadgeText: {
+    fontSize: FONT_SIZE.xs,
+    fontWeight: FONT_WEIGHT.extrabold,
+    color: COLORS.successDark,
   },
 
   h1: {

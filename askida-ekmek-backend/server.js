@@ -234,6 +234,202 @@ async function deleteCollectionWhere(collectionName, field, value) {
 }
 
 /* =========================================
+   ORTAK TESLİM HELPER'I
+   PANEL + TABELA AYNI MERKEZDEN ÇALIŞSIN
+========================================= */
+
+async function findBakeryByIdOrUid(bakeryIdOrUid) {
+  const directRef = db.collection("bakeries").doc(bakeryIdOrUid);
+  const directSnap = await directRef.get();
+
+  if (directSnap.exists) {
+    return {
+      ref: directRef,
+      snap: directSnap,
+      id: directRef.id,
+      data: directSnap.data() || {},
+    };
+  }
+
+  const byUidSnap = await db
+    .collection("bakeries")
+    .where("uid", "==", bakeryIdOrUid)
+    .limit(1)
+    .get();
+
+  if (!byUidSnap.empty) {
+    const docSnap = byUidSnap.docs[0];
+    return {
+      ref: docSnap.ref,
+      snap: docSnap,
+      id: docSnap.id,
+      data: docSnap.data() || {},
+    };
+  }
+
+  return null;
+}
+
+async function performBakeryDelivery({
+  bakeryId,
+  productType,
+  count,
+  source,
+  note = "",
+}) {
+  const normalizedBakeryId = cleanText(bakeryId);
+  const normalizedProductType = cleanText(productType).toLowerCase();
+  const normalizedSource = cleanText(source || "bakery-panel");
+  const normalizedCount = Math.max(1, safeNumber(count, 1));
+  const normalizedNote = cleanText(note || "");
+
+  if (!normalizedBakeryId) {
+    throw new Error("bakeryId zorunlu");
+  }
+
+  if (!["ekmek", "pide"].includes(normalizedProductType)) {
+    throw new Error("productType sadece 'ekmek' veya 'pide' olabilir");
+  }
+
+  if (
+    !["bakery-panel", "tabela-mode", "baker-panel"].includes(normalizedSource)
+  ) {
+    throw new Error(
+      "source sadece 'bakery-panel', 'baker-panel' veya 'tabela-mode' olabilir"
+    );
+  }
+
+  const bakery = await findBakeryByIdOrUid(normalizedBakeryId);
+
+  if (!bakery) {
+    throw new Error("Fırın bulunamadı");
+  }
+
+  const pendingField =
+    normalizedProductType === "ekmek" ? "pendingEkmek" : "pendingPide";
+  const deliveredField =
+    normalizedProductType === "ekmek" ? "deliveredEkmek" : "deliveredPide";
+  const transactionType =
+    normalizedProductType === "ekmek"
+      ? "askidan-ekmek-verildi"
+      : "askidan-pide-verildi";
+
+  const result = await db.runTransaction(async (tx) => {
+    const bakerySnap = await tx.get(bakery.ref);
+
+    if (!bakerySnap.exists) {
+      throw new Error("Fırın kaydı işlem sırasında bulunamadı");
+    }
+
+    const bakeryData = bakerySnap.data() || {};
+    const currentPending = safeNumber(bakeryData[pendingField], 0);
+    const currentDelivered = safeNumber(bakeryData[deliveredField], 0);
+
+    if (currentPending < normalizedCount) {
+      throw new Error(
+        normalizedProductType === "ekmek"
+          ? "Askıda yeterli ekmek yok"
+          : "Askıda yeterli pide yok"
+      );
+    }
+
+    const newPending = currentPending - normalizedCount;
+    const newDelivered = currentDelivered + normalizedCount;
+
+    tx.set(
+      bakery.ref,
+      {
+        [pendingField]: newPending,
+        [deliveredField]: newDelivered,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const bakeryDocId = bakery.ref.id;
+    const dailyKey = `${bakeryDocId}_${todayStr()}`;
+    const dailyRef = db.collection("deliveries_daily").doc(dailyKey);
+
+    tx.set(
+      dailyRef,
+      {
+        bakeryId: bakeryDocId,
+        bakeryName: bakeryData?.bakeryName || "",
+        date: todayStr(),
+        deliveredEkmek:
+          normalizedProductType === "ekmek"
+            ? admin.firestore.FieldValue.increment(normalizedCount)
+            : admin.firestore.FieldValue.increment(0),
+        deliveredPide:
+          normalizedProductType === "pide"
+            ? admin.firestore.FieldValue.increment(normalizedCount)
+            : admin.firestore.FieldValue.increment(0),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const txRef = db.collection("bakery_transactions").doc();
+
+    const legacyFields =
+      normalizedProductType === "ekmek"
+        ? {
+            pendingEkmekBefore: currentPending,
+            pendingEkmekAfter: newPending,
+            deliveredEkmekBefore: currentDelivered,
+            deliveredEkmekAfter: newDelivered,
+          }
+        : {
+            pendingPideBefore: currentPending,
+            pendingPideAfter: newPending,
+            deliveredPideBefore: currentDelivered,
+            deliveredPideAfter: newDelivered,
+          };
+
+    tx.set(txRef, {
+      bakeryId: bakeryDocId,
+      bakeryName: bakeryData?.bakeryName || "",
+      city: bakeryData?.city || "",
+      district: bakeryData?.district || "",
+      neighborhood: bakeryData?.neighborhood || "",
+      type: transactionType,
+      source:
+        normalizedSource === "baker-panel" ? "bakery-panel" : normalizedSource,
+      productType: normalizedProductType,
+      count: normalizedCount,
+      quantity: normalizedCount,
+      unit: "adet",
+      note: normalizedNote,
+      pendingBefore: currentPending,
+      pendingAfter: newPending,
+      deliveredBefore: currentDelivered,
+      deliveredAfter: newDelivered,
+      date: todayStr(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...legacyFields,
+    });
+
+    return {
+      bakeryId: bakeryDocId,
+      bakeryName: bakeryData?.bakeryName || "",
+      city: bakeryData?.city || "",
+      district: bakeryData?.district || "",
+      neighborhood: bakeryData?.neighborhood || "",
+      productType: normalizedProductType,
+      source:
+        normalizedSource === "baker-panel" ? "bakery-panel" : normalizedSource,
+      count: normalizedCount,
+      pendingBefore: currentPending,
+      pendingAfter: newPending,
+      deliveredBefore: currentDelivered,
+      deliveredAfter: newDelivered,
+    };
+  });
+
+  return result;
+}
+
+/* =========================================
    ROOT
 ========================================= */
 
@@ -1421,10 +1617,18 @@ app.get("/admin/transactions", async (req, res) => {
         source: data.source || "",
         date: data.date || "",
         createdAt: data.createdAt || null,
+        pendingBefore: Number(data.pendingBefore || 0),
+        pendingAfter: Number(data.pendingAfter || 0),
+        deliveredBefore: Number(data.deliveredBefore || 0),
+        deliveredAfter: Number(data.deliveredAfter || 0),
         pendingEkmekBefore: Number(data.pendingEkmekBefore || 0),
         pendingEkmekAfter: Number(data.pendingEkmekAfter || 0),
         deliveredEkmekBefore: Number(data.deliveredEkmekBefore || 0),
         deliveredEkmekAfter: Number(data.deliveredEkmekAfter || 0),
+        pendingPideBefore: Number(data.pendingPideBefore || 0),
+        pendingPideAfter: Number(data.pendingPideAfter || 0),
+        deliveredPideBefore: Number(data.deliveredPideBefore || 0),
+        deliveredPideAfter: Number(data.deliveredPideAfter || 0),
       };
     });
 
@@ -1561,64 +1765,56 @@ app.post("/admin/baker/reset-password", async (req, res) => {
 });
 
 /* =========================================
-   BAKER: DELIVER SUSPENDED BREAD
+   ORTAK TESLİM ENDPOINT
+   PANEL + TABELA BURAYI KULLANACAK
+========================================= */
+
+app.post("/bakery/deliver", async (req, res) => {
+  try {
+    const bakeryId = cleanText(req.body?.bakeryId);
+    const productType = cleanText(req.body?.productType).toLowerCase();
+    const count = Math.max(1, safeNumber(req.body?.count, 1));
+    const source = cleanText(req.body?.source || "bakery-panel");
+    const note = cleanText(req.body?.note || "");
+
+    const result = await performBakeryDelivery({
+      bakeryId,
+      productType,
+      count,
+      source,
+      note,
+    });
+
+    return res.json({
+      ok: true,
+      message:
+        result.productType === "ekmek"
+          ? `${result.count} adet askıda ekmek teslim edildi`
+          : `${result.count} adet askıda pide teslim edildi`,
+      data: result,
+    });
+  } catch (error) {
+    console.error("POST /bakery/deliver error:", error);
+    return res.status(400).json({
+      ok: false,
+      message: error.message || "Teslim işlemi başarısız",
+    });
+  }
+});
+
+/* =========================================
+   ESKİ ENDPOINT - GERİYE DÖNÜK UYUMLULUK
 ========================================= */
 
 app.post("/baker/deliver-suspended-bread", async (req, res) => {
   try {
     const bakeryId = cleanText(req.body?.bakeryId);
-    const count = safeNumber(req.body?.count, 0);
+    const count = Math.max(1, safeNumber(req.body?.count, 1));
     const note = cleanText(req.body?.note || "");
     const source = cleanText(req.body?.source || "baker-panel");
 
-    if (!bakeryId || count <= 0) {
-      return res.status(400).json({
-        ok: false,
-        message: "bakeryId ve pozitif count gerekli",
-      });
-    }
-
-    const bakeryRef = db.collection("bakeries").doc(bakeryId);
-    const bakeryDoc = await bakeryRef.get();
-
-    if (!bakeryDoc.exists) {
-      return res.status(404).json({
-        ok: false,
-        message: "Fırın bulunamadı",
-      });
-    }
-
-    const bakeryData = bakeryDoc.data() || {};
-    const pendingEkmek = safeNumber(bakeryData.pendingEkmek, 0);
-    const deliveredEkmek = safeNumber(bakeryData.deliveredEkmek, 0);
-
-    if (pendingEkmek <= 0) {
-      return res.status(400).json({
-        ok: false,
-        message: "Askıda bekleyen ekmek bulunmuyor",
-      });
-    }
-
-    if (count > pendingEkmek) {
-      return res.status(400).json({
-        ok: false,
-        message: "Teslim adedi, bekleyen ekmek sayısından fazla olamaz",
-      });
-    }
-
-    await bakeryRef.set(
-      {
-        pendingEkmek: pendingEkmek - count,
-        deliveredEkmek: deliveredEkmek + count,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    await writeBakeryTransaction({
+    const result = await performBakeryDelivery({
       bakeryId,
-      bakeryName: bakeryData.bakeryName || "",
-      type: "baker-deliver-bread",
       productType: "ekmek",
       count,
       source,
@@ -1628,17 +1824,17 @@ app.post("/baker/deliver-suspended-bread", async (req, res) => {
     return res.json({
       ok: true,
       message: "Askıdan ekmek verildi",
-      bakeryId,
-      bakeryName: bakeryData.bakeryName || "",
-      pendingEkmek: pendingEkmek - count,
-      deliveredEkmek: deliveredEkmek + count,
+      bakeryId: result.bakeryId,
+      bakeryName: result.bakeryName,
+      pendingEkmek: result.pendingAfter,
+      deliveredEkmek: result.deliveredAfter,
+      data: result,
     });
   } catch (error) {
     console.error("POST /baker/deliver-suspended-bread error:", error);
-    return res.status(500).json({
+    return res.status(400).json({
       ok: false,
-      message: "Askıdan ekmek verme işlemi başarısız",
-      error: error.message,
+      message: error.message || "Askıdan ekmek verme işlemi başarısız",
     });
   }
 });

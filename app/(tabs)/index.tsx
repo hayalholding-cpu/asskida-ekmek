@@ -68,7 +68,11 @@ export default function IndexScreen() {
 
             <View style={styles.smallStatCard}>
               <View style={styles.smallIconWrap}>
-                <Ionicons name="storefront-outline" size={18} color="#B45309" />
+                <Ionicons
+                  name="storefront-outline"
+                  size={18}
+                  color="#B45309"
+                />
               </View>
               <Text style={styles.smallStatLabel}>Şu anda askıda</Text>
               <Text style={styles.smallStatNumber}>482</Text>
@@ -83,6 +87,50 @@ export default function IndexScreen() {
             </Text>
           </View>
 
+          <View style={styles.howItWorksCard}>
+            <Text style={styles.sectionTitle}>Nasıl Çalışır?</Text>
+
+            <View style={styles.stepItem}>
+              <View style={styles.stepNumberWrap}>
+                <Text style={styles.stepNumber}>1</Text>
+              </View>
+              <View style={styles.stepTextWrap}>
+                <Text style={styles.stepTitle}>Bölgeni seç</Text>
+                <Text style={styles.stepDescription}>
+                  İlçe ve mahalle bilgini seçerek anlaşmalı fırınlara ulaş.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.stepDivider} />
+
+            <View style={styles.stepItem}>
+              <View style={styles.stepNumberWrap}>
+                <Text style={styles.stepNumber}>2</Text>
+              </View>
+              <View style={styles.stepTextWrap}>
+                <Text style={styles.stepTitle}>Fırını belirle</Text>
+                <Text style={styles.stepDescription}>
+                  Sana uygun noktadaki fırını seç ve işlemi başlat.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.stepDivider} />
+
+            <View style={styles.stepItem}>
+              <View style={styles.stepNumberWrap}>
+                <Text style={styles.stepNumber}>3</Text>
+              </View>
+              <View style={styles.stepTextWrap}>
+                <Text style={styles.stepTitle}>Ekmek bırak</Text>
+                <Text style={styles.stepDescription}>
+                  Ödemeni tamamla, bıraktığın ekmek ihtiyaç sahibine ulaşsın.
+                </Text>
+              </View>
+            </View>
+          </View>
+
           <View style={styles.buttonWrap}>
             <PrimaryButton
               title="BİR EKMEK BIRAK"
@@ -90,8 +138,28 @@ export default function IndexScreen() {
             />
           </View>
 
+          <View style={styles.bakeryCard}>
+            <View style={styles.bakeryIconWrap}>
+              <Ionicons name="storefront-outline" size={20} color="#92400E" />
+            </View>
+
+            <Text style={styles.bakeryCardTitle}>Fırıncı mısınız?</Text>
+            <Text style={styles.bakeryCardText}>
+              Askı işlemlerini ve günlük hareketleri fırıncı panelinden takip
+              edebilirsiniz.
+            </Text>
+
+            <View style={styles.bakeryButtonWrap}>
+              <PrimaryButton
+                title="FIRINCI GİRİŞİ"
+                onPress={() => router.push("/firinci-giris")}
+              />
+            </View>
+          </View>
+
           <Text style={styles.bottomNote}>
-            Seçtiğin anlaşmalı fırına kolayca ekmek bırak, bir sofraya destek ol.
+            Mahallendeki anlaşmalı fırına ekmek bırak, ihtiyaç sahibine anında
+            ulaşsın.
           </Text>
         </View>
       </ScrollView>
@@ -316,8 +384,117 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 
+  howItWorksCard: {
+    width: "100%",
+    backgroundColor: "#FFFDF9",
+    borderRadius: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E8D4B8",
+    ...SHADOWS.card,
+  },
+
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#7C2D12",
+    marginBottom: 14,
+  },
+
+  stepItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+
+  stepNumberWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#F97316",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    marginTop: 2,
+  },
+
+  stepNumber: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+
+  stepTextWrap: {
+    flex: 1,
+  },
+
+  stepTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#1E293B",
+    marginBottom: 3,
+  },
+
+  stepDescription: {
+    fontSize: 12,
+    color: "#64748B",
+    lineHeight: 17,
+  },
+
+  stepDivider: {
+    height: 1,
+    backgroundColor: "#F1E1C8",
+    marginVertical: 12,
+    marginLeft: 40,
+  },
+
   buttonWrap: {
     marginTop: 2,
+  },
+
+  bakeryCard: {
+    width: "100%",
+    backgroundColor: "#FFF7E8",
+    borderRadius: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: "#F1D0B5",
+    ...SHADOWS.card,
+  },
+
+  bakeryIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#FDE7C7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+
+  bakeryCardTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#7C2D12",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+
+  bakeryCardText: {
+    fontSize: 12,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+
+  bakeryButtonWrap: {
+    width: "100%",
+    marginTop: 14,
   },
 
   bottomNote: {

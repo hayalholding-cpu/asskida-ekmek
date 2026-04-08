@@ -1,14 +1,9 @@
 import {
-  addDoc,
   collection,
   doc,
   getDocs,
-  increment,
   onSnapshot,
   query,
-  serverTimestamp,
-  setDoc,
-  updateDoc,
   where,
 } from "firebase/firestore";
 import React, { useEffect, useMemo, useState } from "react";
@@ -22,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { deliverSuspendedProduct } from "../../lib/api";
 import { db } from "../../lib/firebase";
 
 type BakeryDoc = {
@@ -48,6 +44,8 @@ type BakeryDoc = {
 type DailyDeliveryDoc = {
   ekmek?: number;
   pide?: number;
+  deliveredEkmek?: number;
+  deliveredPide?: number;
 };
 
 type BakeryTransaction = {
@@ -121,6 +119,7 @@ function getIncomingProduct(tx: BakeryTransaction): "ekmek" | "pide" | null {
     merged.includes("mobile-payment") ||
     merged.includes("payment") ||
     merged.includes("admin-add-bread") ||
+    merged.includes("admin-add-pide") ||
     merged.includes("manual-credit") ||
     merged.includes("incoming") ||
     merged.includes("in");
@@ -146,7 +145,8 @@ function getDeliveredProduct(tx: BakeryTransaction): "ekmek" | "pide" | null {
     merged.includes("delivered") ||
     merged.includes("delivery") ||
     merged.includes("verildi") ||
-    merged.includes("bakery-panel");
+    merged.includes("bakery-panel") ||
+    merged.includes("tabela-mode");
 
   if (!isDelivered) return null;
 
@@ -172,7 +172,8 @@ function getTransactionTypeLabel(tx: BakeryTransaction) {
     merged.includes("askidan-pide-verildi") ||
     merged.includes("verildi") ||
     merged.includes("delivery") ||
-    merged.includes("bakery-panel")
+    merged.includes("bakery-panel") ||
+    merged.includes("tabela-mode")
   ) {
     return "Teslim";
   }
@@ -181,6 +182,7 @@ function getTransactionTypeLabel(tx: BakeryTransaction) {
     merged.includes("mobile-payment") ||
     merged.includes("payment") ||
     merged.includes("admin-add-bread") ||
+    merged.includes("admin-add-pide") ||
     merged.includes("manual-credit") ||
     merged.includes("incoming") ||
     merged.includes("in")
@@ -214,6 +216,7 @@ export default function FirinciPanel() {
 
   const [loginLoading, setLoginLoading] = useState(false);
   const [panelLoading, setPanelLoading] = useState(false);
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
 
   const [deliverEkmek, setDeliverEkmek] = useState(0);
   const [deliverPide, setDeliverPide] = useState(0);
@@ -282,8 +285,12 @@ export default function FirinciPanel() {
           }
 
           const data = snap.data() as DailyDeliveryDoc;
-          setTodayDeliveredEkmek(safeNumber(data?.ekmek));
-          setTodayDeliveredPide(safeNumber(data?.pide));
+          setTodayDeliveredEkmek(
+            safeNumber(data?.ekmek || data?.deliveredEkmek)
+          );
+          setTodayDeliveredPide(
+            safeNumber(data?.pide || data?.deliveredPide)
+          );
         } catch {
           setTodayDeliveredEkmek(0);
           setTodayDeliveredPide(0);
@@ -540,53 +547,25 @@ export default function FirinciPanel() {
       return Alert.alert("Uyarı", "Bekleyen ürün yok veya seçim geçersiz.");
     }
 
+    setDeliveryLoading(true);
+
     try {
-      const bakeryRef = doc(db, "bakeries", bakeryId);
-      const dayKey = getTodayKey();
-
-      await updateDoc(bakeryRef, {
-        pendingEkmek: increment(-ekmekToDeliver),
-        pendingPide: increment(-pideToDeliver),
-        deliveredEkmek: increment(ekmekToDeliver),
-        deliveredPide: increment(pideToDeliver),
-        updatedAt: serverTimestamp(),
-      });
-
-      await setDoc(
-        doc(db, "deliveries_daily", `${bakeryId}_${dayKey}`),
-        {
-          bakeryId,
-          bakeryName: bakery.bakeryName ?? "",
-          dayKey,
-          ekmek: increment(ekmekToDeliver),
-          pide: increment(pideToDeliver),
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true }
-      );
-
       if (ekmekToDeliver > 0) {
-        await addDoc(collection(db, "bakery_transactions"), {
+        await deliverSuspendedProduct({
           bakeryId,
-          bakeryName: bakery.bakeryName ?? "",
           productType: "ekmek",
-          type: "askidan-ekmek-verildi",
-          source: "bakery-panel",
           count: ekmekToDeliver,
-          createdAt: serverTimestamp(),
+          source: "bakery-panel",
           note: "Fırıncı panelinden askıdan ekmek teslim edildi",
         });
       }
 
       if (pideToDeliver > 0) {
-        await addDoc(collection(db, "bakery_transactions"), {
+        await deliverSuspendedProduct({
           bakeryId,
-          bakeryName: bakery.bakeryName ?? "",
           productType: "pide",
-          type: "askidan-pide-verildi",
-          source: "bakery-panel",
           count: pideToDeliver,
-          createdAt: serverTimestamp(),
+          source: "bakery-panel",
           note: "Fırıncı panelinden askıdan pide teslim edildi",
         });
       }
@@ -597,6 +576,8 @@ export default function FirinciPanel() {
       Alert.alert("Başarılı", "Teslim işlemi kaydedildi ve askıdan düşürüldü.");
     } catch (error: any) {
       Alert.alert("Hata", error?.message ?? "Teslim işlemi yapılamadı.");
+    } finally {
+      setDeliveryLoading(false);
     }
   };
 
@@ -765,6 +746,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.stepBtnLarge}
                       onPress={() => step("ekmek", -1)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.stepBtnTextLarge}>−</Text>
                     </TouchableOpacity>
@@ -774,6 +756,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.stepBtnLarge}
                       onPress={() => step("ekmek", +1)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.stepBtnTextLarge}>+</Text>
                     </TouchableOpacity>
@@ -783,6 +766,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.quickBtn}
                       onPress={() => setQuickAmount("ekmek", 1)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.quickBtnText}>1</Text>
                     </TouchableOpacity>
@@ -790,6 +774,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.quickBtn}
                       onPress={() => setQuickAmount("ekmek", 5)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.quickBtnText}>5</Text>
                     </TouchableOpacity>
@@ -797,6 +782,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.quickBtn}
                       onPress={() => setQuickAmount("ekmek", 10)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.quickBtnText}>10</Text>
                     </TouchableOpacity>
@@ -804,6 +790,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.quickBtnWide}
                       onPress={() => setQuickAmount("ekmek", pendingEkmek)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.quickBtnText}>Tümü</Text>
                     </TouchableOpacity>
@@ -820,6 +807,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.stepBtn}
                       onPress={() => step("pide", -1)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.stepBtnText}>−</Text>
                     </TouchableOpacity>
@@ -829,6 +817,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.stepBtn}
                       onPress={() => step("pide", +1)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.stepBtnText}>+</Text>
                     </TouchableOpacity>
@@ -838,6 +827,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.quickBtnMuted}
                       onPress={() => setQuickAmount("pide", 1)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.quickBtnMutedText}>1</Text>
                     </TouchableOpacity>
@@ -845,6 +835,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.quickBtnMuted}
                       onPress={() => setQuickAmount("pide", 5)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.quickBtnMutedText}>5</Text>
                     </TouchableOpacity>
@@ -852,6 +843,7 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.quickBtnMuted}
                       onPress={() => setQuickAmount("pide", 10)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.quickBtnMutedText}>10</Text>
                     </TouchableOpacity>
@@ -859,14 +851,26 @@ export default function FirinciPanel() {
                     <TouchableOpacity
                       style={styles.quickBtnWideMuted}
                       onPress={() => setQuickAmount("pide", pendingPide)}
+                      disabled={deliveryLoading}
                     >
                       <Text style={styles.quickBtnMutedText}>Tümü</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                <TouchableOpacity style={styles.mainActionBtn} onPress={teslimEt}>
-                  <Text style={styles.mainActionBtnText}>ASKIDAN DÜŞ</Text>
+                <TouchableOpacity
+                  style={[
+                    styles.mainActionBtn,
+                    deliveryLoading && styles.mainActionBtnDisabled,
+                  ]}
+                  onPress={teslimEt}
+                  disabled={deliveryLoading}
+                >
+                  {deliveryLoading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.mainActionBtnText}>ASKIDAN DÜŞ</Text>
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -1401,6 +1405,9 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: "center",
     elevation: 3,
+  },
+  mainActionBtnDisabled: {
+    opacity: 0.7,
   },
   mainActionBtnText: {
     color: "#FFFFFF",

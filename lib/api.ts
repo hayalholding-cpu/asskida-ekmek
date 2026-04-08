@@ -1,8 +1,41 @@
-const API_BASE =
-  process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.104:4000";
+const API_BASE = process.env.EXPO_PUBLIC_API_URL as string;
+
+if (!API_BASE) {
+  throw new Error("EXPO_PUBLIC_API_URL tanımlı değil. .env dosyasını kontrol et.");
+}
 
 type RequestOptions = RequestInit & {
   bodyJson?: unknown;
+};
+
+export type DeliverProductType = "ekmek" | "pide";
+export type DeliverSource = "bakery-panel" | "tabela-mode";
+
+export type DeliverSuspendedProductPayload = {
+  bakeryId: string;
+  productType: DeliverProductType;
+  count?: number;
+  source?: DeliverSource;
+  note?: string;
+};
+
+export type DeliverSuspendedProductResponse = {
+  ok: boolean;
+  message: string;
+  data?: {
+    bakeryId: string;
+    bakeryName: string;
+    city?: string;
+    district?: string;
+    neighborhood?: string;
+    productType: DeliverProductType;
+    source: DeliverSource;
+    count: number;
+    pendingBefore: number;
+    pendingAfter: number;
+    deliveredBefore: number;
+    deliveredAfter: number;
+  };
 };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -44,6 +77,36 @@ export async function apiPost<T>(path: string, bodyJson?: unknown): Promise<T> {
   return request<T>(path, { method: "POST", bodyJson });
 }
 
+export async function deliverSuspendedProduct(
+  payload: DeliverSuspendedProductPayload
+): Promise<DeliverSuspendedProductResponse> {
+  const bakeryId = String(payload?.bakeryId || "").trim();
+  const productType = payload?.productType;
+  const count = Math.max(1, Number(payload?.count || 1));
+  const source = payload?.source || "bakery-panel";
+  const note = String(payload?.note || "").trim();
+
+  if (!bakeryId) {
+    throw new Error("bakeryId zorunlu");
+  }
+
+  if (productType !== "ekmek" && productType !== "pide") {
+    throw new Error("productType yalnızca 'ekmek' veya 'pide' olabilir");
+  }
+
+  if (source !== "bakery-panel" && source !== "tabela-mode") {
+    throw new Error("source yalnızca 'bakery-panel' veya 'tabela-mode' olabilir");
+  }
+
+  return apiPost<DeliverSuspendedProductResponse>("/bakery/deliver", {
+    bakeryId,
+    productType,
+    count,
+    source,
+    note,
+  });
+}
+
 export const API = {
   mobileCities: () => apiGet("/mobile/cities"),
 
@@ -82,6 +145,9 @@ export const API = {
 
   mobilePaymentComplete: (payload: any) =>
     apiPost("/mobile/payment-complete", payload),
+
+  deliverSuspendedProduct: (payload: DeliverSuspendedProductPayload) =>
+    deliverSuspendedProduct(payload),
 };
 
 export default API;
