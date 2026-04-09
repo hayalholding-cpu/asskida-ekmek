@@ -1502,20 +1502,15 @@ app.put("/baker/:uid/products", async (req, res) => {
    BAKER TRANSACTIONS
 ========================================= */
 
-app.get("/baker/:uid/transactions", async (...) => {
-  ...
-});
+app.get("/baker/:uid/transactions", async (req, res) => {
+  try {
+    const { uid } = req.params;
 
-
-// 🔥 BURAYA YAPIŞTIR
-app.get("/baker/:uid/today-summary", async (req, res) => {
-  ...
-});
-
-
-/* =========================================
-   ADMIN TRANSACTIONS
-========================================= */
+    if (!uid) {
+      return res.status(400).json({
+        ok: false,
+        message: "Fırın uid gerekli",
+      });
     }
 
     const bakery = await findBakeryByUid(uid);
@@ -1527,61 +1522,25 @@ app.get("/baker/:uid/today-summary", async (req, res) => {
       });
     }
 
-    const bakeryId = bakery.id;
-    const bakeryData = bakery.data;
+    const snapshot = await db
+      .collection("bakery_transactions")
+      .where("bakeryId", "==", bakery.id)
+      .orderBy("createdAt", "desc")
+      .limit(200)
+      .get();
 
-    const txMap = new Map();
-
-    const snaps = await Promise.all([
-      db.collection("bakery_transactions").where("bakeryId", "==", bakeryId).get(),
-      db.collection("bakery_transactions").where("bakeryId", "==", uid).get(),
-      db.collection("bakery_transactions").where("uid", "==", uid).get(),
-    ]);
-
-    snaps.forEach((snap) => {
-      snap.docs.forEach((docSnap) => {
-        if (!txMap.has(docSnap.id)) {
-          txMap.set(docSnap.id, {
-            id: docSnap.id,
-            ...docSnap.data(),
-          });
-        }
-      });
-    });
-
-    const transactions = Array.from(txMap.values()).map((data) => ({
-      id: data.id,
-      bakeryId: data.bakeryId || bakeryId,
-      bakeryName: data.bakeryName || bakeryData.bakeryName || "",
-      type: data.type || "",
-      source: data.source || "",
-      productType: data.productType || "",
-      count: Number(data.count || 0),
-      note: data.note || "",
-      createdAt: data.createdAt || null,
-    }));
-
-    transactions.sort((a, b) => {
-      const aMs =
-        a.createdAt && typeof a.createdAt.toDate === "function"
-          ? a.createdAt.toDate().getTime()
-          : 0;
-
-      const bMs =
-        b.createdAt && typeof b.createdAt.toDate === "function"
-          ? b.createdAt.toDate().getTime()
-          : 0;
-
-      return bMs - aMs;
+    const transactions = snapshot.docs.map((doc) => {
+      const data = doc.data() || {};
+      return {
+        id: doc.id,
+        ...data,
+        count: safeNumber(data.count || data.quantity, 0),
+        createdAt: data.createdAt || null,
+      };
     });
 
     return res.json({
       ok: true,
-      bakery: {
-        id: bakeryId,
-        uid: bakeryData.uid || uid,
-        bakeryName: bakeryData.bakeryName || "",
-      },
       transactions,
     });
   } catch (error) {
@@ -1589,6 +1548,85 @@ app.get("/baker/:uid/today-summary", async (req, res) => {
     return res.status(500).json({
       ok: false,
       message: "İşlem geçmişi alınamadı",
+      error: error.message,
+    });
+  }
+});
+
+
+app.get("/baker/:uid/today-summary", async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    if (!uid) {
+      return res.status(400).json({
+        ok: false,
+        message: "Fırın uid gerekli",
+      });
+    }
+
+    const bakery = await findBakeryByUid(uid);
+
+    if (!bakery) {
+      return res.status(404).json({
+        ok: false,
+        message: "Fırın bulunamadı",
+      });
+    }
+
+    const today = todayStr();
+    const start = new Date(`${today}T00:00:00.000Z`);
+    const end = new Date(`${today}T23:59:59.999Z`);
+
+    const snap = await db
+      .collection("bakery_transactions")
+      .where("bakeryId", "==", bakery.id)
+      .where("createdAt", ">=", start)
+      .where("createdAt", "<=", end)
+      .get();
+
+    let deliveredEkmek = 0;
+    let deliveredPide = 0;
+    let incomingEkmek = 0;
+    let incomingPide = 0;
+
+    snap.forEach((doc) => {
+      const d = doc.data() || {};
+      const type = cleanText(d.type).toLowerCase();
+      const product = cleanText(d.productType).toLowerCase();
+      const count = safeNumber(d.count || d.quantity, 0);
+
+      // VERİLEN
+      if (type === "askidan-ekmek-verildi") {
+        if (product === "ekmek") deliveredEkmek += count;
+        if (product === "pide") deliveredPide += count;
+      }
+
+      // GELEN
+      if (
+        type === "mobile-payment" ||
+        type === "admin-add-bread" ||
+        type === "mobile-payment-pide"
+      ) {
+        if (product === "ekmek") incomingEkmek += count;
+        if (product === "pide") incomingPide += count;
+      }
+    });
+
+    return res.json({
+      ok: true,
+      data: {
+        deliveredEkmek,
+        deliveredPide,
+        incomingEkmek,
+        incomingPide,
+      },
+    });
+  } catch (error) {
+    console.error("GET /baker/:uid/today-summary error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Bugün özeti alınamadı",
       error: error.message,
     });
   }
