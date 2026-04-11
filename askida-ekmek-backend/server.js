@@ -5,6 +5,9 @@ const express = require("express");
 const cors = require("cors");
 const admin = require("firebase-admin");
 
+/* =========================================
+   FIREBASE INIT (ENV ÜZERİNDEN)
+========================================= */
 const firebaseServiceAccount = {
   projectId: process.env.FIREBASE_PROJECT_ID,
   clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -20,6 +23,9 @@ if (!admin.apps.length) {
 const db = admin.firestore();
 const auth = admin.auth();
 
+/* =========================================
+   EXPRESS INIT
+========================================= */
 const app = express();
 const PORT = process.env.PORT || 4000;
 
@@ -33,9 +39,19 @@ app.use(
 app.use(express.json());
 
 /* =========================================
+   ROOT ENDPOINT (RENDER UYANDIRMA)
+========================================= */
+app.get("/", (req, res) => {
+  console.log("ROOT ENDPOINT ÇALIŞTI");
+  return res.status(200).json({
+    ok: true,
+    message: "Askıda Ekmek backend çalışıyor",
+  });
+});
+
+/* =========================================
    HELPERS
 ========================================= */
-
 function cleanText(v = "") {
   return String(v || "").trim();
 }
@@ -44,14 +60,15 @@ function safeNumber(v, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
-
-function safeBool(v, fallback = false) {
+function safeBool(v, fallback = true) {
+  if (v === undefined || v === null) return fallback;
   if (typeof v === "boolean") return v;
-  if (typeof v === "string") {
-    const x = v.trim().toLowerCase();
-    if (x === "true") return true;
-    if (x === "false") return false;
-  }
+
+  const s = String(v).trim().toLowerCase();
+
+  if (["true", "1", "yes", "on"].includes(s)) return true;
+  if (["false", "0", "no", "off"].includes(s)) return false;
+
   return fallback;
 }
 
@@ -351,24 +368,39 @@ async function performBakeryDelivery({
     const dailyKey = `${bakeryDocId}_${todayStr()}`;
     const dailyRef = db.collection("deliveries_daily").doc(dailyKey);
 
-    tx.set(
-      dailyRef,
-      {
-        bakeryId: bakeryDocId,
-        bakeryName: bakeryData?.bakeryName || "",
-        date: todayStr(),
-        deliveredEkmek:
-          normalizedProductType === "ekmek"
-            ? admin.firestore.FieldValue.increment(normalizedCount)
-            : admin.firestore.FieldValue.increment(0),
-        deliveredPide:
-          normalizedProductType === "pide"
-            ? admin.firestore.FieldValue.increment(normalizedCount)
-            : admin.firestore.FieldValue.increment(0),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+   tx.set(
+  dailyRef,
+  {
+    bakeryId: bakeryDocId,
+    bakeryName: bakeryData?.bakeryName || "",
+    date: todayStr(),
+
+    // ✅ yeni sistem
+    deliveredEkmek:
+      normalizedProductType === "ekmek"
+        ? admin.firestore.FieldValue.increment(normalizedCount)
+        : admin.firestore.FieldValue.increment(0),
+
+    deliveredPide:
+      normalizedProductType === "pide"
+        ? admin.firestore.FieldValue.increment(normalizedCount)
+        : admin.firestore.FieldValue.increment(0),
+
+    // ✅ eski sistem (admin + mobil için kritik)
+    ekmek:
+      normalizedProductType === "ekmek"
+        ? admin.firestore.FieldValue.increment(normalizedCount)
+        : admin.firestore.FieldValue.increment(0),
+
+    pide:
+      normalizedProductType === "pide"
+        ? admin.firestore.FieldValue.increment(normalizedCount)
+        : admin.firestore.FieldValue.increment(0),
+
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  },
+  { merge: true }
+);
 
     const txRef = db.collection("bakery_transactions").doc();
 
@@ -1502,6 +1534,69 @@ app.put("/baker/:uid/products", async (req, res) => {
    BAKER TRANSACTIONS
 ========================================= */
 
+app.get("/baker/:uid/today-summary", async (req, res) => {
+  try {
+    const { uid } = req.params;
+
+    if (!uid) {
+      return res.status(400).json({
+        ok: false,
+        message: "Fırın uid gerekli",
+      });
+    }
+
+    const bakery = await findBakeryByUid(uid);
+
+    if (!bakery) {
+      return res.status(404).json({
+        ok: false,
+        message: "Fırın bulunamadı",
+      });
+    }
+
+    const bakeryId = bakery.id;
+    const dayKey = `${bakeryId}_${todayStr()}`;
+    const docSnap = await db.collection("deliveries_daily").doc(dayKey).get();
+
+    if (!docSnap.exists) {
+      return res.json({
+        ok: true,
+        data: {
+          incomingEkmek: 0,
+          deliveredEkmek: 0,
+          incomingPide: 0,
+          deliveredPide: 0,
+        },
+      });
+    }
+
+    const data = docSnap.data() || {};
+
+    return res.json({
+      ok: true,
+      data: {
+        incomingEkmek: safeNumber(data.incomingEkmek, 0),
+        deliveredEkmek: Math.max(
+          safeNumber(data.deliveredEkmek, 0),
+          safeNumber(data.ekmek, 0)
+        ),
+        incomingPide: safeNumber(data.incomingPide, 0),
+        deliveredPide: Math.max(
+          safeNumber(data.deliveredPide, 0),
+          safeNumber(data.pide, 0)
+        ),
+      },
+    });
+  } catch (error) {
+    console.error("GET /baker/:uid/today-summary error:", error);
+    return res.status(500).json({
+      ok: false,
+      message: "Bugün özeti alınamadı",
+      error: error.message,
+    });
+  }
+});
+
 app.get("/baker/:uid/transactions", async (req, res) => {
   try {
     const { uid } = req.params;
@@ -1919,6 +2014,14 @@ app.post("/bakery/deliver", async (req, res) => {
     const source = cleanText(req.body?.source || "bakery-panel");
     const note = cleanText(req.body?.note || "");
 
+    console.log("POST /bakery/deliver request:", {
+      bakeryId,
+      productType,
+      count,
+      source,
+      note,
+    });
+
     const result = await performBakeryDelivery({
       bakeryId,
       productType,
@@ -1927,7 +2030,7 @@ app.post("/bakery/deliver", async (req, res) => {
       note,
     });
 
-    return res.json({
+    return res.status(200).json({
       ok: true,
       message:
         result.productType === "ekmek"
@@ -1937,9 +2040,11 @@ app.post("/bakery/deliver", async (req, res) => {
     });
   } catch (error) {
     console.error("POST /bakery/deliver error:", error);
+
     return res.status(400).json({
       ok: false,
-      message: error.message || "Teslim işlemi başarısız",
+      message: error?.message || "Teslim işlemi başarısız",
+      data: null,
     });
   }
 });
@@ -1955,6 +2060,13 @@ app.post("/baker/deliver-suspended-bread", async (req, res) => {
     const note = cleanText(req.body?.note || "");
     const source = cleanText(req.body?.source || "baker-panel");
 
+    console.log("POST /baker/deliver-suspended-bread request:", {
+      bakeryId,
+      count,
+      source,
+      note,
+    });
+
     const result = await performBakeryDelivery({
       bakeryId,
       productType: "ekmek",
@@ -1963,7 +2075,7 @@ app.post("/baker/deliver-suspended-bread", async (req, res) => {
       note,
     });
 
-    return res.json({
+    return res.status(200).json({
       ok: true,
       message: "Askıdan ekmek verildi",
       bakeryId: result.bakeryId,
@@ -1974,9 +2086,11 @@ app.post("/baker/deliver-suspended-bread", async (req, res) => {
     });
   } catch (error) {
     console.error("POST /baker/deliver-suspended-bread error:", error);
+
     return res.status(400).json({
       ok: false,
-      message: error.message || "Askıdan ekmek verme işlemi başarısız",
+      message: error?.message || "Askıdan ekmek verme işlemi başarısız",
+      data: null,
     });
   }
 });
