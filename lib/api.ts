@@ -6,6 +6,7 @@ if (!API_BASE) {
 
 type RequestOptions = RequestInit & {
   bodyJson?: unknown;
+  timeoutMs?: number;
 };
 
 export type DeliverProductType = "ekmek" | "pide";
@@ -39,34 +40,57 @@ export type DeliverSuspendedProductResponse = {
 };
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { bodyJson, headers, ...rest } = options;
+  const { bodyJson, headers, timeoutMs = 60000, ...rest } = options;
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...rest,
-    headers: {
-      "Content-Type": "application/json",
-      ...(headers || {}),
-    },
-    body: bodyJson !== undefined ? JSON.stringify(bodyJson) : rest.body,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const text = await response.text();
-
-  let data: any = null;
   try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
-  }
+    const url = `${API_BASE}${path}`;
 
-  if (!response.ok) {
-    const message =
-      (data && typeof data === "object" && (data.message || data.error)) ||
-      `API ${response.status}`;
-    throw new Error(String(message));
-  }
+    console.log("[API BASE]", API_BASE);
+    console.log("[API REQUEST]", rest.method || "GET", url, bodyJson ?? null);
 
-  return data as T;
+    const response = await fetch(url, {
+      ...rest,
+      headers: {
+        "Content-Type": "application/json",
+        ...(headers || {}),
+      },
+      body: bodyJson !== undefined ? JSON.stringify(bodyJson) : rest.body,
+      signal: controller.signal,
+    });
+
+    const text = await response.text();
+
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+
+    console.log("[API RESPONSE]", rest.method || "GET", url, response.status, data);
+
+    if (!response.ok) {
+      const message =
+        (data && typeof data === "object" && (data.message || data.error)) ||
+        `API ${response.status}`;
+      throw new Error(String(message));
+    }
+
+    return data as T;
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      console.log("[API ERROR TIMEOUT]", path);
+      throw new Error("Sunucu zamanında cevap vermedi. İstek zaman aşımına uğradı.");
+    }
+
+    console.log("[API ERROR]", path, error);
+    throw new Error(error?.message || "Ağ bağlantısı veya sunucu hatası oluştu.");
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
@@ -75,6 +99,17 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 export async function apiPost<T>(path: string, bodyJson?: unknown): Promise<T> {
   return request<T>(path, { method: "POST", bodyJson });
+}
+
+async function wakeBackend() {
+  try {
+    console.log("[WAKE BACKEND] başladı");
+    await request("/", { method: "GET", timeoutMs: 60000 });
+    console.log("[WAKE BACKEND] başarılı");
+  } catch (error) {
+    console.log("[WAKE BACKEND] hata", error);
+    throw error;
+  }
 }
 
 export async function deliverSuspendedProduct(
@@ -97,6 +132,16 @@ export async function deliverSuspendedProduct(
   if (source !== "bakery-panel" && source !== "tabela-mode") {
     throw new Error("source yalnızca 'bakery-panel' veya 'tabela-mode' olabilir");
   }
+
+  console.log("[deliverSuspendedProduct] payload", {
+    bakeryId,
+    productType,
+    count,
+    source,
+    note,
+  });
+
+  await wakeBackend();
 
   return apiPost<DeliverSuspendedProductResponse>("/bakery/deliver", {
     bakeryId,
