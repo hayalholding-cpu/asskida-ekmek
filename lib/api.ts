@@ -1,8 +1,8 @@
-const API_BASE = process.env.EXPO_PUBLIC_API_URL as string;
-
-if (!API_BASE) {
-  throw new Error("EXPO_PUBLIC_API_URL tanımlı değil. .env dosyasını kontrol et.");
-}
+const DEFAULT_API_BASE = "https://api.ekmek.com.tr";
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL?.trim() || DEFAULT_API_BASE).replace(
+  /\/+$/,
+  ""
+);
 
 type RequestOptions = RequestInit & {
   bodyJson?: unknown;

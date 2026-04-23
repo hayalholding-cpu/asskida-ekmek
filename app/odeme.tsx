@@ -11,9 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL?.trim() || "http://192.168.1.104:4000";
+import { API } from "../lib/api";
 
 function toNumber(value: unknown, fallback = 0) {
   const n = Number(value);
@@ -73,23 +71,15 @@ export default function PaymentScreen() {
     setLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/mobile/payment-complete`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          bakeryId: summary.bakeryId,
-          bakeryName: summary.bakeryName,
-          productType: summary.productType,
-          count: summary.count,
-          totalPrice: summary.totalPrice,
-        }),
+      const data = await API.mobilePaymentComplete({
+        bakeryId: summary.bakeryId,
+        bakeryName: summary.bakeryName,
+        productType: summary.productType,
+        count: summary.count,
+        totalPrice: summary.totalPrice,
       });
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok || data?.ok === false) {
+      if (data?.ok === false) {
         throw new Error(data?.message || "Ödeme işlemi tamamlanamadı.");
       }
 

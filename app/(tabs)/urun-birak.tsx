@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import PrimaryButton from "../../components/ui/PrimaryButton";
 import SectionCard from "../../components/ui/SectionCard";
-import { API } from "../../lib/api";
+import { API, apiGet } from "../../lib/api";
 import {
   COLORS,
   COMPONENTS,
@@ -99,6 +99,61 @@ function normalizeArray(data: any, keys: string[]) {
   }
 
   return [];
+}
+
+async function loadMobileProducts() {
+  if (typeof API.mobileProducts === "function") {
+    return API.mobileProducts();
+  }
+
+  return apiGet("/mobile/products");
+}
+
+async function loadMobileDistricts(cityCode: number | string) {
+  if (typeof API.mobileDistricts === "function") {
+    return API.mobileDistricts(cityCode);
+  }
+
+  return apiGet(
+    `/mobile/districts?cityCode=${encodeURIComponent(String(cityCode))}`
+  );
+}
+
+async function loadMobileNeighborhoods(districtSlug: string) {
+  if (typeof API.mobileNeighborhoods === "function") {
+    return API.mobileNeighborhoods(districtSlug);
+  }
+
+  return apiGet(
+    `/mobile/neighborhoods?districtSlug=${encodeURIComponent(
+      String(districtSlug)
+    )}`
+  );
+}
+
+async function loadMobileBakeries(params: {
+  cityCode?: number | string;
+  districtCode?: number | string;
+  neighborhoodCode?: number | string;
+}) {
+  if (typeof API.mobileBakeries === "function") {
+    return API.mobileBakeries(params);
+  }
+
+  const search = new URLSearchParams();
+
+  if (params.cityCode !== undefined && params.cityCode !== null) {
+    search.append("cityCode", String(params.cityCode));
+  }
+  if (params.districtCode !== undefined && params.districtCode !== null) {
+    search.append("districtCode", String(params.districtCode));
+  }
+  if (params.neighborhoodCode !== undefined && params.neighborhoodCode !== null) {
+    search.append("neighborhoodCode", String(params.neighborhoodCode));
+  }
+
+  const query = search.toString();
+  return apiGet(`/mobile/bakeries${query ? `?${query}` : ""}`);
 }
 
 function mapDistrict(item: any): DistrictDoc {
@@ -328,7 +383,7 @@ export default function UrunBirak() {
         let rawList: any[] = [];
 
         try {
-          data = await API.mobileDistricts(ISTANBUL_CITY_CODE);
+          data = await loadMobileDistricts(ISTANBUL_CITY_CODE);
           rawList = normalizeArray(data, ["districts", "items"]);
         } catch (firstError) {
           console.log("İlçe ilk istek hatası:", firstError);
@@ -336,7 +391,7 @@ export default function UrunBirak() {
 
         if (rawList.length === 0) {
           try {
-            data = await API.mobileDistricts(FALLBACK_CITY_CODE);
+            data = await loadMobileDistricts(FALLBACK_CITY_CODE);
             rawList = normalizeArray(data, ["districts", "items"]);
           } catch (secondError) {
             console.log("İlçe fallback istek hatası:", secondError);
@@ -379,7 +434,7 @@ export default function UrunBirak() {
       setLoadingProducts(true);
 
       try {
-        const data = await API.mobileProducts();
+        const data = await loadMobileProducts();
         const rawList = normalizeArray(data, ["products", "items"]);
 
         const clean: ProductDoc[] = rawList
@@ -442,14 +497,14 @@ export default function UrunBirak() {
 
         try {
           if (districtSlug) {
-            neighborhoodData = await API.mobileNeighborhoods(districtSlug);
+            neighborhoodData = await loadMobileNeighborhoods(districtSlug);
           }
         } catch (e) {
           console.log("Mahalle endpoint hatası:", e);
         }
 
         try {
-          districtBakeryData = await API.mobileBakeries({
+          districtBakeryData = await loadMobileBakeries({
             cityCode: ISTANBUL_CITY_CODE,
             ...(districtCode ? { districtCode } : {}),
           });
@@ -458,7 +513,7 @@ export default function UrunBirak() {
         }
 
         try {
-          cityBakeryData = await API.mobileBakeries({
+          cityBakeryData = await loadMobileBakeries({
             cityCode: ISTANBUL_CITY_CODE,
           });
         } catch (e) {
