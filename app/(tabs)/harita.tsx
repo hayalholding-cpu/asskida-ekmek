@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Circle, Marker } from "react-native-maps";
+import BakeryMap from "../../components/map/BakeryMap";
 
 type Bakery = {
   id: string;
@@ -82,7 +82,7 @@ function getDistanceInKm(
   lat2: number,
   lon2: number
 ) {
-  const R = 6371;
+  const earthRadiusKm = 6371;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
 
@@ -94,7 +94,7 @@ function getDistanceInKm(
       Math.sin(dLon / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return earthRadiusKm * c;
 }
 
 function formatDistance(km: number) {
@@ -240,54 +240,14 @@ export default function MapScreen() {
         )}
 
         <View style={styles.mapCard}>
-          <MapView
-            style={styles.map}
+          <BakeryMap
+            bakeries={BAKERIES}
             initialRegion={initialRegion}
-            showsUserLocation={!!userLocation}
-            showsMyLocationButton={true}
-            rotateEnabled={false}
-          >
-            {userLocation && (
-              <Circle
-                center={userLocation}
-                radius={250}
-                strokeWidth={1}
-                strokeColor="rgba(59,130,246,0.35)"
-                fillColor="rgba(59,130,246,0.12)"
-              />
-            )}
-
-            {BAKERIES.map((bakery) => {
-              const isSelected = selectedBakery.id === bakery.id;
-              const isNearest = nearestBakery?.bakery.id === bakery.id;
-
-              return (
-                <Marker
-                  key={bakery.id}
-                  coordinate={{
-                    latitude: bakery.lat,
-                    longitude: bakery.lng,
-                  }}
-                  pinColor={isNearest ? "#16A34A" : "#FF7A0D"}
-                  title={bakery.name}
-                  description={bakery.address}
-                  onPress={() => setSelectedBakery(bakery)}
-                >
-                  {isSelected ? (
-                    <View style={styles.selectedMarker}>
-                      <Text style={styles.selectedMarkerText}>📍</Text>
-                    </View>
-                  ) : null}
-                </Marker>
-              );
-            })}
-          </MapView>
-
-          <View style={styles.mapOverlay}>
-            <Text style={styles.mapOverlayText}>
-              Yakınındaki anlaşmalı fırınları keşfet
-            </Text>
-          </View>
+            nearestBakeryId={nearestBakery?.bakery.id}
+            onSelectBakery={setSelectedBakery}
+            selectedBakeryId={selectedBakery.id}
+            userLocation={userLocation}
+          />
         </View>
 
         <View style={styles.infoCard}>
@@ -441,44 +401,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
     marginBottom: 14,
-  },
-
-  map: {
-    width: "100%",
-    height: "100%",
-  },
-
-  mapOverlay: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    right: 12,
-    backgroundColor: "rgba(255,247,237,0.94)",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-
-  mapOverlayText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#7C2D12",
-    textAlign: "center",
-  },
-
-  selectedMarker: {
-    minWidth: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#FFF7ED",
-    borderWidth: 2,
-    borderColor: "#FF7A0D",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  selectedMarkerText: {
-    fontSize: 16,
   },
 
   infoCard: {
