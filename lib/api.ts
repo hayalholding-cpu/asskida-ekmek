@@ -112,6 +112,10 @@ async function wakeBackend() {
   }
 }
 
+export async function ensureBackendReady() {
+  await wakeBackend();
+}
+
 export async function deliverSuspendedProduct(
   payload: DeliverSuspendedProductPayload
 ): Promise<DeliverSuspendedProductResponse> {
@@ -188,8 +192,10 @@ export const API = {
 
   mobileProducts: () => apiGet("/mobile/products"),
 
-  mobilePaymentComplete: (payload: any) =>
-    apiPost("/mobile/payment-complete", payload),
+  mobilePaymentComplete: async (payload: any) => {
+    await wakeBackend();
+    return apiPost("/mobile/payment-complete", payload);
+  },
 
   deliverSuspendedProduct: (payload: DeliverSuspendedProductPayload) =>
     deliverSuspendedProduct(payload),

@@ -3,6 +3,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const crypto = require("crypto");
 const admin = require("firebase-admin");
 
 /* =========================================
@@ -28,6 +29,15 @@ const auth = admin.auth();
 ========================================= */
 const app = express();
 const PORT = process.env.PORT || 4000;
+const ADMIN_ALLOWED_ROLES = new Set(["super_admin", "admin"]);
+const BAKERY_SESSION_SECRET = String(
+  process.env.BAKERY_SESSION_SECRET ||
+    process.env.APP_SESSION_SECRET ||
+    process.env.FIREBASE_PRIVATE_KEY ||
+    ""
+).trim();
+const PAYMENT_WEBHOOK_SECRET = String(process.env.PAYMENT_WEBHOOK_SECRET || "").trim();
+const SUPER_ADMIN_SETUP_KEY = String(process.env.SUPER_ADMIN_SETUP_KEY || "").trim();
 
 app.use(
   cors({
@@ -104,6 +114,419 @@ function firstFilled(...values) {
     if (text) return text;
   }
   return "";
+}
+
+function normalizeAdminRole(value = "") {
+  const role = cleanText(value).toLowerCase();
+  return role === "superadmin" ? "super_admin" : role;
+}
+
+function normalizeHeaderValue(value) {
+  if (Array.isArray(value)) return cleanText(value[0]);
+  return cleanText(value);
+}
+
+function getBearerToken(req) {
+  const authorization = normalizeHeaderValue(req.headers?.authorization);
+
+  if (/^bearer\s+/i.test(authorization)) {
+    return cleanText(authorization.replace(/^bearer\s+/i, ""));
+  }
+
+  return firstFilled(
+    normalizeHeaderValue(req.headers?.["x-bakery-session"]),
+    normalizeHeaderValue(req.headers?.["x-session-token"]),
+    normalizeHeaderValue(req.headers?.["x-auth-token"])
+  );
+}
+
+function toBase64Url(value) {
+  return Buffer.from(value)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
+function fromBase64Url(value) {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+  return Buffer.from(normalized + padding, "base64").toString("utf8");
+}
+
+function timingSafeEqualText(a, b) {
+  const aBuf = Buffer.from(String(a || ""), "utf8");
+  const bBuf = Buffer.from(String(b || ""), "utf8");
+
+  if (aBuf.length !== bBuf.length) return false;
+
+  return crypto.timingSafeEqual(aBuf, bBuf);
+}
+
+function isBakeryPasswordHash(value = "") {
+  return cleanText(value).startsWith("scrypt$");
+}
+
+function hashBakeryPassword(password) {
+  const normalizedPassword = cleanText(password);
+
+  if (!normalizedPassword) {
+    throw new Error("Şifre boş olamaz");
+  }
+
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(normalizedPassword, salt, 64).toString("hex");
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifyBakeryPassword(password, storedPassword) {
+  const normalizedPassword = cleanText(password);
+  const normalizedStoredPassword = cleanText(storedPassword);
+
+  if (!normalizedPassword || !normalizedStoredPassword) {
+    return {
+      valid: false,
+      needsUpgrade: false,
+    };
+  }
+
+  if (!isBakeryPasswordHash(normalizedStoredPassword)) {
+    const valid = timingSafeEqualText(normalizedPassword, normalizedStoredPassword);
+    return {
+      valid,
+      needsUpgrade: valid,
+    };
+  }
+
+  const parts = normalizedStoredPassword.split("$");
+  if (parts.length !== 3) {
+    return {
+      valid: false,
+      needsUpgrade: false,
+    };
+  }
+
+  const [, salt, expectedHash] = parts;
+  const actualHash = crypto
+    .scryptSync(normalizedPassword, salt, Buffer.from(expectedHash, "hex").length)
+    .toString("hex");
+
+  return {
+    valid: timingSafeEqualText(actualHash, expectedHash),
+    needsUpgrade: false,
+  };
+}
+
+function issueBakerySessionToken({ bakeryId, uid }) {
+  if (!BAKERY_SESSION_SECRET) {
+    throw new Error("BAKERY_SESSION_SECRET eksik");
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const ttlSeconds = Math.max(3600, safeNumber(process.env.BAKERY_SESSION_TTL_SECONDS, 43200));
+  const payload = {
+    sub: cleanText(uid || bakeryId),
+    uid: cleanText(uid),
+    bakeryId: cleanText(bakeryId),
+    role: "bakery",
+    iat: nowSeconds,
+    exp: nowSeconds + ttlSeconds,
+  };
+
+  const header = {
+    alg: "HS256",
+    typ: "JWT",
+  };
+
+  const encodedHeader = toBase64Url(JSON.stringify(header));
+  const encodedPayload = toBase64Url(JSON.stringify(payload));
+  const unsignedToken = `${encodedHeader}.${encodedPayload}`;
+  const signature = crypto
+    .createHmac("sha256", BAKERY_SESSION_SECRET)
+    .update(unsignedToken)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+  return {
+    token: `${unsignedToken}.${signature}`,
+    expiresAt: new Date(payload.exp * 1000).toISOString(),
+  };
+}
+
+function verifyBakerySessionToken(token) {
+  const normalizedToken = cleanText(token);
+  const [encodedHeader, encodedPayload, signature] = normalizedToken.split(".");
+
+  if (!encodedHeader || !encodedPayload || !signature) {
+    throw new Error("Geçersiz fırın oturumu");
+  }
+
+  if (!BAKERY_SESSION_SECRET) {
+    throw new Error("BAKERY_SESSION_SECRET eksik");
+  }
+
+  const unsignedToken = `${encodedHeader}.${encodedPayload}`;
+  const expectedSignature = crypto
+    .createHmac("sha256", BAKERY_SESSION_SECRET)
+    .update(unsignedToken)
+    .digest("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+  if (!timingSafeEqualText(signature, expectedSignature)) {
+    throw new Error("Fırın oturumu doğrulanamadı");
+  }
+
+  const payload = JSON.parse(fromBase64Url(encodedPayload));
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  if (!payload?.exp || payload.exp <= nowSeconds) {
+    throw new Error("Fırın oturumu süresi doldu");
+  }
+
+  return payload;
+}
+
+function sanitizeBakeryDetail(id, data = {}) {
+  return {
+    id,
+    uid: data.uid || id,
+    bakeryName: data.bakeryName || "",
+    bakeryCode: data.bakeryCode || "",
+    email: data.email || "",
+    phone: data.phone || "",
+    city: data.city || "",
+    district: data.district || "",
+    neighborhood: data.neighborhood || "",
+    address: data.address || "",
+    citySlug: data.citySlug || slugifyTr(data.city || ""),
+    districtSlug: data.districtSlug || slugifyTr(data.district || ""),
+    neighborhoodSlug:
+      data.neighborhoodSlug || slugifyTr(data.neighborhood || ""),
+    isActive: data.isActive !== false,
+    pendingEkmek: safeNumber(data.pendingEkmek, 0),
+    pendingPide: safeNumber(data.pendingPide, 0),
+    deliveredEkmek: safeNumber(data.deliveredEkmek, 0),
+    deliveredPide: safeNumber(data.deliveredPide, 0),
+    products: Array.isArray(data.products) ? data.products : [],
+    createdAt: data.createdAt || null,
+    updatedAt: data.updatedAt || null,
+  };
+}
+
+async function findAdminByUidOrEmail({ uid, email }) {
+  const normalizedUid = cleanText(uid);
+  const normalizedEmail = cleanText(email).toLowerCase();
+
+  if (normalizedUid) {
+    const byUid = await db.collection("admins").doc(normalizedUid).get();
+    if (byUid.exists) {
+      return {
+        id: byUid.id,
+        ...byUid.data(),
+      };
+    }
+  }
+
+  if (normalizedEmail) {
+    const byEmailSnap = await db
+      .collection("admins")
+      .where("email", "==", normalizedEmail)
+      .limit(1)
+      .get();
+
+    if (!byEmailSnap.empty) {
+      return {
+        id: byEmailSnap.docs[0].id,
+        ...byEmailSnap.docs[0].data(),
+      };
+    }
+  }
+
+  return null;
+}
+
+async function getAdminContextFromRequest(req) {
+  const token = getBearerToken(req);
+
+  if (!token) return null;
+
+  try {
+    const decodedToken = await auth.verifyIdToken(token);
+    const adminDoc = await findAdminByUidOrEmail({
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+    });
+
+    if (!adminDoc) return null;
+
+    const normalizedRole = normalizeAdminRole(adminDoc.role);
+
+    if (adminDoc.isActive === false || !ADMIN_ALLOWED_ROLES.has(normalizedRole)) {
+      return null;
+    }
+
+    return {
+      uid: adminDoc.uid || decodedToken.uid,
+      email: adminDoc.email || decodedToken.email || "",
+      name: adminDoc.name || "",
+      role: normalizedRole,
+      permissions: adminDoc.permissions || {},
+      raw: adminDoc,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function requireAdminAuth(allowedRoles = []) {
+  const normalizedAllowedRoles = allowedRoles.map(normalizeAdminRole);
+
+  return async (req, res, next) => {
+    const adminContext = await getAdminContextFromRequest(req);
+
+    if (!adminContext) {
+      return res.status(401).json({
+        ok: false,
+        message: "Admin yetkilendirmesi gerekli",
+      });
+    }
+
+    if (
+      normalizedAllowedRoles.length > 0 &&
+      !normalizedAllowedRoles.includes(adminContext.role)
+    ) {
+      return res.status(403).json({
+        ok: false,
+        message: "Bu işlem için yetkiniz yok",
+      });
+    }
+
+    req.admin = adminContext;
+    return next();
+  };
+}
+
+function bakerySessionMatchesRequest(req, bakerySession) {
+  const allowedValues = new Set(
+    [bakerySession?.uid, bakerySession?.bakeryId].map(cleanText).filter(Boolean)
+  );
+  const requestedValues = [
+    req.params?.uid,
+    req.query?.uid,
+    req.query?.bakeryId,
+    req.body?.uid,
+    req.body?.bakeryId,
+  ]
+    .map(cleanText)
+    .filter(Boolean);
+
+  if (requestedValues.length === 0) {
+    return true;
+  }
+
+  return requestedValues.every((value) => allowedValues.has(value));
+}
+
+async function requireBakeryOrAdminAuth(req, res, next) {
+  const adminContext = await getAdminContextFromRequest(req);
+
+  if (adminContext) {
+    req.admin = adminContext;
+    return next();
+  }
+
+  const token = getBearerToken(req);
+
+  if (!token) {
+    return res.status(401).json({
+      ok: false,
+      message: "Fırın oturumu gerekli",
+    });
+  }
+
+  try {
+    const bakerySession = verifyBakerySessionToken(token);
+
+    if (!bakerySessionMatchesRequest(req, bakerySession)) {
+      return res.status(403).json({
+        ok: false,
+        message: "Bu fırın kaynağına erişim izniniz yok",
+      });
+    }
+
+    req.bakerySession = bakerySession;
+    return next();
+  } catch (error) {
+    return res.status(401).json({
+      ok: false,
+      message: error.message || "Fırın oturumu doğrulanamadı",
+    });
+  }
+}
+
+async function requirePaymentWriteAuth(req, res, next) {
+  const adminContext = await getAdminContextFromRequest(req);
+
+  if (adminContext) {
+    req.admin = adminContext;
+    return next();
+  }
+
+  if (!PAYMENT_WEBHOOK_SECRET) {
+    return res.status(503).json({
+      ok: false,
+      message: "PAYMENT_WEBHOOK_SECRET eksik",
+    });
+  }
+
+  const providedSecret = firstFilled(
+    normalizeHeaderValue(req.headers?.["x-payment-webhook-secret"]),
+    normalizeHeaderValue(req.headers?.["x-webhook-secret"]),
+    req.body?.paymentWebhookSecret,
+    req.body?.webhookSecret
+  );
+
+  if (!providedSecret || !timingSafeEqualText(providedSecret, PAYMENT_WEBHOOK_SECRET)) {
+    return res.status(401).json({
+      ok: false,
+      message: "Ödeme webhook doğrulaması başarısız",
+    });
+  }
+
+  return next();
+}
+
+async function requireSuperAdminBootstrap(req, res, next) {
+  const existingAdmins = await db.collection("admins").limit(1).get();
+
+  if (!existingAdmins.empty) {
+    return requireAdminAuth(["super_admin"])(req, res, next);
+  }
+
+  if (!SUPER_ADMIN_SETUP_KEY) {
+    return res.status(503).json({
+      ok: false,
+      message: "SUPER_ADMIN_SETUP_KEY eksik",
+    });
+  }
+
+  const providedKey = firstFilled(
+    normalizeHeaderValue(req.headers?.["x-setup-key"]),
+    req.body?.setupKey
+  );
+
+  if (!providedKey || !timingSafeEqualText(providedKey, SUPER_ADMIN_SETUP_KEY)) {
+    return res.status(401).json({
+      ok: false,
+      message: "Kurulum anahtarı doğrulanamadı",
+    });
+  }
+
+  return next();
 }
 
 function mapBakeryPublic(docSnap) {
@@ -477,7 +900,7 @@ app.get("/", (req, res) => {
    SUPER ADMIN
 ========================================= */
 
-app.post("/create-super-admin", async (req, res) => {
+app.post("/create-super-admin", requireSuperAdminBootstrap, async (req, res) => {
   try {
     const name = cleanText(req.body?.name);
     const email = cleanText(req.body?.email).toLowerCase();
@@ -707,14 +1130,29 @@ app.post("/bakery-login", async (req, res) => {
       });
     }
 
-    const bakeryPassword = cleanText(bakery.bakeryPassword);
+    const passwordCheck = verifyBakeryPassword(password, bakery.bakeryPassword);
 
-    if (!bakeryPassword || bakeryPassword !== password) {
+    if (!passwordCheck.valid) {
       return res.status(401).json({
         ok: false,
         message: "Fırıncı kodu veya şifre hatalı",
       });
     }
+
+    if (passwordCheck.needsUpgrade) {
+      await docSnap.ref.set(
+        {
+          bakeryPassword: hashBakeryPassword(password),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    const session = issueBakerySessionToken({
+      bakeryId: docSnap.id,
+      uid: bakery.uid || "",
+    });
 
     return res.json({
       ok: true,
@@ -734,6 +1172,9 @@ app.post("/bakery-login", async (req, res) => {
         deliveredPide: safeNumber(bakery.deliveredPide, 0),
         products: Array.isArray(bakery.products) ? bakery.products : [],
       },
+      token: session.token,
+      tokenType: "Bearer",
+      expiresAt: session.expiresAt,
     });
   } catch (error) {
     console.error("POST /bakery-login error:", error);
@@ -780,14 +1221,29 @@ app.post("/firinci-login", async (req, res) => {
       });
     }
 
-    const bakeryPassword = cleanText(bakery.bakeryPassword);
+    const passwordCheck = verifyBakeryPassword(password, bakery.bakeryPassword);
 
-    if (!bakeryPassword || bakeryPassword !== password) {
+    if (!passwordCheck.valid) {
       return res.status(401).json({
         ok: false,
         message: "Fırıncı kodu veya şifre hatalı",
       });
     }
+
+    if (passwordCheck.needsUpgrade) {
+      await docSnap.ref.set(
+        {
+          bakeryPassword: hashBakeryPassword(password),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    const session = issueBakerySessionToken({
+      bakeryId: docSnap.id,
+      uid: bakery.uid || "",
+    });
 
     return res.json({
       ok: true,
@@ -807,6 +1263,9 @@ app.post("/firinci-login", async (req, res) => {
         deliveredPide: safeNumber(bakery.deliveredPide, 0),
         products: Array.isArray(bakery.products) ? bakery.products : [],
       },
+      token: session.token,
+      tokenType: "Bearer",
+      expiresAt: session.expiresAt,
     });
   } catch (error) {
     console.error("POST /firinci-login error:", error);
@@ -817,6 +1276,8 @@ app.post("/firinci-login", async (req, res) => {
     });
   }
 });
+
+app.use("/admin", requireAdminAuth());
 
 /* =========================================
    PUBLIC / MOBILE LOCATION & BAKERY API
@@ -1259,7 +1720,7 @@ app.get("/admin/bakeries", async (req, res) => {
    CREATE BAKER ACCOUNT
 ========================================= */
 
-app.post("/create-baker-account", async (req, res) => {
+app.post("/create-baker-account", requireAdminAuth(), async (req, res) => {
   try {
     const bakeryName = cleanText(req.body?.bakeryName);
     const email = cleanText(req.body?.email).toLowerCase();
@@ -1276,6 +1737,15 @@ app.post("/create-baker-account", async (req, res) => {
       return res.status(400).json({
         ok: false,
         message: "bakeryName, email, password, district ve neighborhood zorunlu",
+      });
+    }
+
+    const bakeryPassword = cleanText(req.body?.bakeryPassword) || password;
+
+    if (password.length < 6 || bakeryPassword.length < 6) {
+      return res.status(400).json({
+        ok: false,
+        message: "Şifre en az 6 karakter olmalı",
       });
     }
 
@@ -1297,13 +1767,12 @@ app.post("/create-baker-account", async (req, res) => {
     }
 
     const bakeryCode = await generateBakeryCode();
-    const bakeryPassword = cleanText(req.body?.bakeryPassword) || password;
 
     const bakeryRef = await db.collection("bakeries").add({
       uid: userRecord.uid,
       bakeryName,
       bakeryCode,
-      bakeryPassword,
+      bakeryPassword: hashBakeryPassword(bakeryPassword),
       email,
       phone,
       city,
@@ -1345,7 +1814,7 @@ app.post("/create-baker-account", async (req, res) => {
    BAKER DETAIL
 ========================================= */
 
-app.get("/baker/:uid", async (req, res) => {
+app.get("/baker/:uid", requireBakeryOrAdminAuth, async (req, res) => {
   try {
     const { uid } = req.params;
     const bakery = await findBakeryByUid(uid);
@@ -1359,10 +1828,7 @@ app.get("/baker/:uid", async (req, res) => {
 
     return res.json({
       ok: true,
-      bakery: {
-        id: bakery.id,
-        ...bakery.data,
-      },
+      bakery: sanitizeBakeryDetail(bakery.id, bakery.data),
     });
   } catch (error) {
     console.error("GET /baker/:uid error:", error);
@@ -1374,7 +1840,7 @@ app.get("/baker/:uid", async (req, res) => {
   }
 });
 
-app.put("/baker/:uid", async (req, res) => {
+app.put("/baker/:uid", requireAdminAuth(), async (req, res) => {
   try {
     const { uid } = req.params;
     const bakery = await findBakeryByUid(uid);
@@ -1411,10 +1877,6 @@ app.put("/baker/:uid", async (req, res) => {
         req.body?.address !== undefined
           ? cleanText(req.body.address)
           : bakery.data.address,
-      bakeryPassword:
-        req.body?.bakeryPassword !== undefined
-          ? cleanText(req.body.bakeryPassword)
-          : bakery.data.bakeryPassword || "",
       isActive:
         req.body?.isActive !== undefined
           ? safeBool(req.body.isActive, true)
@@ -1425,6 +1887,19 @@ app.put("/baker/:uid", async (req, res) => {
     payload.citySlug = slugifyTr(payload.city);
     payload.districtSlug = slugifyTr(payload.district);
     payload.neighborhoodSlug = slugifyTr(payload.neighborhood);
+
+    if (req.body?.bakeryPassword !== undefined) {
+      const nextBakeryPassword = cleanText(req.body?.bakeryPassword);
+
+      if (nextBakeryPassword.length < 6) {
+        return res.status(400).json({
+          ok: false,
+          message: "Şifre en az 6 karakter olmalı",
+        });
+      }
+
+      payload.bakeryPassword = hashBakeryPassword(nextBakeryPassword);
+    }
 
     await db.collection("bakeries").doc(bakery.id).set(payload, { merge: true });
 
@@ -1442,7 +1917,7 @@ app.put("/baker/:uid", async (req, res) => {
   }
 });
 
-app.delete("/baker/:uid", async (req, res) => {
+app.delete("/baker/:uid", requireAdminAuth(), async (req, res) => {
   try {
     const { uid } = req.params;
     const bakery = await findBakeryByUid(uid);
@@ -1494,7 +1969,7 @@ app.delete("/baker/:uid", async (req, res) => {
    BAKER PRODUCTS
 ========================================= */
 
-app.put("/baker/:uid/products", async (req, res) => {
+app.put("/baker/:uid/products", requireBakeryOrAdminAuth, async (req, res) => {
   try {
     const { uid } = req.params;
     const bakery = await findBakeryByUid(uid);
@@ -1534,7 +2009,7 @@ app.put("/baker/:uid/products", async (req, res) => {
    BAKER TRANSACTIONS
 ========================================= */
 
-app.get("/baker/:uid/today-summary", async (req, res) => {
+app.get("/baker/:uid/today-summary", requireBakeryOrAdminAuth, async (req, res) => {
   try {
     const { uid } = req.params;
 
@@ -1597,7 +2072,7 @@ app.get("/baker/:uid/today-summary", async (req, res) => {
   }
 });
 
-app.get("/baker/:uid/transactions", async (req, res) => {
+app.get("/baker/:uid/transactions", requireBakeryOrAdminAuth, async (req, res) => {
   try {
     const { uid } = req.params;
 
@@ -1788,7 +2263,7 @@ app.post("/admin/add-bread-to-baker", async (req, res) => {
       productType,
       count,
       source,
-      createdByUid: null,
+      createdByUid: req.admin?.uid || null,
       note,
     });
 
@@ -1822,6 +2297,13 @@ app.post("/admin/baker/reset-password", async (req, res) => {
       });
     }
 
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        ok: false,
+        message: "Şifre en az 6 karakter olmalı",
+      });
+    }
+
     const bakery = await findBakeryByUid(uid);
 
     if (!bakery) {
@@ -1833,7 +2315,7 @@ app.post("/admin/baker/reset-password", async (req, res) => {
 
     await db.collection("bakeries").doc(bakery.id).set(
       {
-        bakeryPassword: newPassword,
+        bakeryPassword: hashBakeryPassword(newPassword),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
@@ -1864,7 +2346,7 @@ app.post("/admin/baker/reset-password", async (req, res) => {
    PANEL + TABELA BURAYI KULLANACAK
 ========================================= */
 
-app.post("/bakery/deliver", async (req, res) => {
+app.post("/bakery/deliver", requireBakeryOrAdminAuth, async (req, res) => {
   try {
     const bakeryId = cleanText(req.body?.bakeryId);
     const productType = cleanText(req.body?.productType).toLowerCase();
@@ -1911,7 +2393,10 @@ app.post("/bakery/deliver", async (req, res) => {
    ESKİ ENDPOINT - GERİYE DÖNÜK UYUMLULUK
 ========================================= */
 
-app.post("/baker/deliver-suspended-bread", async (req, res) => {
+app.post(
+  "/baker/deliver-suspended-bread",
+  requireBakeryOrAdminAuth,
+  async (req, res) => {
   try {
     const bakeryId = cleanText(req.body?.bakeryId);
     const count = Math.max(1, safeNumber(req.body?.count, 1));
@@ -1951,25 +2436,48 @@ app.post("/baker/deliver-suspended-bread", async (req, res) => {
       data: null,
     });
   }
-});
+  }
+);
 
 /* =========================================
    MOBILE PAYMENT COMPLETE
 ========================================= */
 
-app.post("/mobile/payment-complete", async (req, res) => {
+app.post("/mobile/payment-complete", requirePaymentWriteAuth, async (req, res) => {
   try {
     const bakeryId = cleanText(req.body?.bakeryId);
     const productType = cleanText(req.body?.productType || "ekmek").toLowerCase();
     const count = safeNumber(req.body?.count, 0);
     const source = cleanText(req.body?.source || "mobile-payment");
     const note = cleanText(req.body?.note || "");
+    const paymentRef = firstFilled(
+      req.body?.paymentId,
+      req.body?.orderId,
+      req.body?.transactionId,
+      req.body?.referenceId
+    );
 
     if (!bakeryId || count <= 0) {
       return res.status(400).json({
         ok: false,
         message: "bakeryId ve pozitif count gerekli",
       });
+    }
+
+    if (paymentRef) {
+      const existingPayment = await db
+        .collection("bakery_transactions")
+        .where("paymentRef", "==", paymentRef)
+        .limit(1)
+        .get();
+
+      if (!existingPayment.empty) {
+        return res.json({
+          ok: true,
+          duplicate: true,
+          message: "Ödeme daha önce işlendi",
+        });
+      }
     }
 
     const bakeryRef = db.collection("bakeries").doc(bakeryId);
@@ -2004,6 +2512,9 @@ app.post("/mobile/payment-complete", async (req, res) => {
       count,
       source,
       note,
+      extra: {
+        paymentRef: paymentRef || null,
+      },
     });
 
     return res.json({

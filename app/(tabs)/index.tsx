@@ -1,7 +1,10 @@
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,159 +12,131 @@ import {
   Text,
   View,
 } from "react-native";
-import PrimaryButton from "../../components/ui/PrimaryButton";
-import { SHADOWS } from "../../lib/theme";
+import BreadHeroArt from "../../components/ui/BreadHeroArt";
+
+const FEATURED_BAKERIES = [
+  { id: "1", name: "Anadolu Ekmek Fırını", distance: "200 m" },
+  { id: "2", name: "Örnek Fırın", distance: "500 m" },
+  { id: "3", name: "Moda Unlu Mamuller", distance: "650 m" },
+];
 
 export default function IndexScreen() {
   const router = useRouter();
+  const tabBarHeight = useBottomTabBarHeight();
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5E2C4" />
+      <StatusBar barStyle="light-content" backgroundColor="#173F77" />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={styles.screen}
+        contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 28 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.container}>
-          <View style={styles.topStrip}>
-            <View style={styles.logoCircle}>
-              <Text style={styles.logo}>🥖</Text>
-            </View>
+        <View style={styles.heroPanel}>
+          <View style={styles.heroTopRow}>
+            <Text style={styles.brandTitle}>ASKIDA{"\n"}EKMEK</Text>
 
-            <Text style={styles.stripSlogan}>
-              Bir ekmek bırak, bir sofraya umut ol.
-            </Text>
-          </View>
-
-          <Text style={styles.title}>ASKIDA EKMEK</Text>
-
-          <View style={styles.trustCard}>
-            <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
-            <Text style={styles.trustText}>
-              İstanbul Fırıncılar Odası güvencesiyle
-            </Text>
-          </View>
-
-          <View style={styles.heroImpactCard}>
-            <View style={styles.heroBadge}>
-              <Ionicons name="sparkles-outline" size={14} color="#92400E" />
-              <Text style={styles.heroBadgeText}>BUGÜN</Text>
-            </View>
-
-            <Text style={styles.heroTitle}>Bugün bırakılan ekmek</Text>
-            <Text style={styles.heroNumber}>1284</Text>
-            <Text style={styles.heroSub}>
-              Bugün İstanbul’da askıya bırakılan toplam ekmek
-            </Text>
-          </View>
-
-          <View style={styles.statsRow}>
-            <View style={styles.smallStatCard}>
-              <View style={styles.smallIconWrap}>
-                <Ionicons name="layers-outline" size={18} color="#B45309" />
-              </View>
-              <Text style={styles.smallStatLabel}>Toplam bırakılan</Text>
-              <Text style={styles.smallStatNumber}>24.532</Text>
-              <Text style={styles.smallStatSub}>uygulama genelinde</Text>
-            </View>
-
-            <View style={styles.smallStatCard}>
-              <View style={styles.smallIconWrap}>
-                <Ionicons
-                  name="storefront-outline"
-                  size={18}
-                  color="#B45309"
-                />
-              </View>
-              <Text style={styles.smallStatLabel}>Şu anda askıda</Text>
-              <Text style={styles.smallStatNumber}>482</Text>
-              <Text style={styles.smallStatSub}>dağıtılmayı bekliyor</Text>
+            <View style={styles.heroTrust}>
+              <Ionicons name="shield-checkmark-outline" size={18} color="#E7BE7A" />
+              <Text style={styles.heroTrustText}>
+                İstanbul{"\n"}Fırıncılar Odası
+              </Text>
             </View>
           </View>
 
-          <View style={styles.socialProofCard}>
-            <Ionicons name="people-outline" size={18} color="#7C2D12" />
-            <Text style={styles.socialProofText}>
-              Bugün 214 kişi askıya ekmek bıraktı
-            </Text>
-          </View>
+          <View style={styles.heroCtaBlock}>
+            <Text style={styles.heroCtaHeading}>ASKIYA EKMEK BIRAK</Text>
 
-          <View style={styles.howItWorksCard}>
-            <Text style={styles.sectionTitle}>Nasıl Çalışır?</Text>
-
-            <View style={styles.stepItem}>
-              <View style={styles.stepNumberWrap}>
-                <Text style={styles.stepNumber}>1</Text>
-              </View>
-              <View style={styles.stepTextWrap}>
-                <Text style={styles.stepTitle}>Bölgeni seç</Text>
-                <Text style={styles.stepDescription}>
-                  İlçe ve mahalle bilgini seçerek anlaşmalı fırınlara ulaş.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.stepDivider} />
-
-            <View style={styles.stepItem}>
-              <View style={styles.stepNumberWrap}>
-                <Text style={styles.stepNumber}>2</Text>
-              </View>
-              <View style={styles.stepTextWrap}>
-                <Text style={styles.stepTitle}>Fırını belirle</Text>
-                <Text style={styles.stepDescription}>
-                  Sana uygun noktadaki fırını seç ve işlemi başlat.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.stepDivider} />
-
-            <View style={styles.stepItem}>
-              <View style={styles.stepNumberWrap}>
-                <Text style={styles.stepNumber}>3</Text>
-              </View>
-              <View style={styles.stepTextWrap}>
-                <Text style={styles.stepTitle}>Ekmek bırak</Text>
-                <Text style={styles.stepDescription}>
-                  Ödemeni tamamla, bıraktığın ekmek ihtiyaç sahibine ulaşsın.
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.buttonWrap}>
-            <PrimaryButton
-              title="BİR EKMEK BIRAK"
+            <Pressable
+              style={styles.heroCtaPressable}
               onPress={() => router.push("/urun-birak")}
-            />
+            >
+              <View style={styles.heroCtaShell}>
+                <LinearGradient
+                  colors={["#F28B3E", "#DD6E28"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.heroCtaButton}
+                >
+                  <View style={styles.heroCtaHighlight} />
+                  <View style={styles.heroCtaPlate}>
+                    <BreadHeroArt />
+                  </View>
+
+                  <View style={styles.heroCtaArrow}>
+                    <Ionicons name="arrow-forward" size={28} color="#FFFFFF" />
+                  </View>
+                </LinearGradient>
+              </View>
+            </Pressable>
           </View>
-
-          <View style={styles.bakeryCard}>
-            <View style={styles.bakeryIconWrap}>
-              <Ionicons name="storefront-outline" size={20} color="#92400E" />
-            </View>
-
-            <Text style={styles.bakeryCardTitle}>Fırıncı mısınız?</Text>
-            <Text style={styles.bakeryCardText}>
-              Askı işlemlerini ve günlük hareketleri fırıncı panelinden takip
-              edebilirsiniz.
-            </Text>
-
-            <View style={styles.bakeryButtonWrap}>
-              <PrimaryButton
-                title="FIRINCI GİRİŞİ"
-                onPress={() => router.push("/firinci-giris")}
-              />
-            </View>
-          </View>
-
-          <Text style={styles.bottomNote}>
-            Mahallendeki anlaşmalı fırına ekmek bırak, ihtiyaç sahibine anında
-            ulaşsın.
-          </Text>
         </View>
+
+        <View style={styles.metricsRow}>
+          <View style={styles.metricMiniCard}>
+            <Ionicons name="basket-outline" size={17} color="#D29139" />
+            <Text style={styles.metricMiniValue}>1000</Text>
+            <Text style={styles.metricMiniLabel}>Bırakılan ekmek</Text>
+          </View>
+
+          <View style={styles.metricMiniCard}>
+            <Ionicons name="people-outline" size={17} color="#8A98B2" />
+            <Text style={styles.metricMiniValue}>13</Text>
+            <Text style={styles.metricMiniLabel}>Ekmek bırakan</Text>
+          </View>
+
+          <View style={styles.metricMiniCard}>
+            <Ionicons name="heart-outline" size={17} color="#D29139" />
+            <Text style={styles.metricMiniValue}>45</Text>
+            <Text style={styles.metricMiniLabel}>Ekmek alan</Text>
+          </View>
+        </View>
+
+        <View style={styles.impactCard}>
+          <View style={styles.impactRow}>
+            <BreadHeroArt compact />
+            <View style={styles.impactTextWrap}>
+              <Text style={styles.impactValue}>12.500+ EKMEK</Text>
+              <Text style={styles.impactLabel}>EKMEK PAYLAŞILDI</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>ANLAŞMALI FIRINLAR</Text>
+          <Pressable onPress={() => router.push("/harita")}>
+            <Text style={styles.sectionLink}>Haritada gör</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.bakeryRow}>
+          {FEATURED_BAKERIES.map((bakery, index) => (
+            <View key={bakery.id} style={styles.bakeryCard}>
+              <View
+                style={[
+                  styles.bakeryImage,
+                  index === 1 ? styles.bakeryImageAlt : null,
+                  index === 2 ? styles.bakeryImageSoft : null,
+                ]}
+              >
+                <BreadHeroArt compact />
+              </View>
+              <Text style={styles.bakeryName} numberOfLines={2}>
+                {bakery.name}
+              </Text>
+              <Text style={styles.bakeryMeta}>{bakery.distance}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Pressable style={styles.footerBand} onPress={() => router.push("/firinci")}>
+          <View>
+            <Text style={styles.footerBandKicker}>FIRINCI PANELİ</Text>
+            <Text style={styles.footerBandTitle}>Fırıncı mısınız?</Text>
+          </View>
+          <Ionicons name="arrow-forward" size={18} color="#173F77" />
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -170,339 +145,298 @@ export default function IndexScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F5E2C4",
+    backgroundColor: "#F3F6FB",
   },
 
-  scrollContent: {
-    paddingBottom: 36,
-  },
-
-  container: {
+  screen: {
     flex: 1,
-    backgroundColor: "#F5E2C4",
-    paddingHorizontal: 22,
-    paddingTop: 8,
+    backgroundColor: "#F3F6FB",
   },
 
-  topStrip: {
-    width: "100%",
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    gap: 14,
+  },
+
+  heroPanel: {
+    backgroundColor: "#173F77",
+    borderRadius: 30,
+    padding: 18,
+    shadowColor: "#173F77",
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 20,
+  },
+
+  brandTitle: {
+    fontSize: 24,
+    lineHeight: 25,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
+  },
+
+  heroTrust: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingTop: 2,
+  },
+
+  heroTrustText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "800",
+    color: "#DCE6F5",
+    textAlign: "right",
+  },
+
+  heroCtaBlock: {
+    gap: 10,
+  },
+
+  heroCtaHeading: {
+    fontSize: 19,
+    lineHeight: 22,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    textAlign: "center",
+    letterSpacing: 0.7,
+  },
+
+  heroCtaPressable: {
+    borderRadius: 34,
+  },
+
+  heroCtaShell: {
+    backgroundColor: "#FFF9F0",
+    borderRadius: 30,
+    padding: 8,
+    shadowColor: "#0F2F59",
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+
+  heroCtaButton: {
+    minHeight: 120,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: "rgba(111, 42, 8, 0.16)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    overflow: "hidden",
+    shadowColor: "#A84514",
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+
+  heroCtaHighlight: {
+    position: "absolute",
+    top: 10,
+    left: 14,
+    right: 14,
+    height: 24,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+
+  heroCtaPlate: {
+    width: 156,
+    height: 82,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#B95018",
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+
+  heroCtaArrow: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+
+  metricsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+
+  metricMiniCard: {
+    flex: 1,
     backgroundColor: "#FFFFFF",
     borderRadius: 22,
     alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 12,
-    marginTop: 6,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#E8C99A",
-  },
-
-  logoCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 28,
-    backgroundColor: "#FFF4E4",
-    alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#F2C89C",
-    marginBottom: 8,
-  },
-
-  logo: {
-    fontSize: 30,
-  },
-
-  stripSlogan: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#000000",
-    textAlign: "center",
-    paddingHorizontal: 18,
-    lineHeight: 21,
-  },
-
-  title: {
-    textAlign: "center",
-    fontSize: 23,
-    fontWeight: "900",
-    color: "#17223B",
-    letterSpacing: 0.4,
-    marginBottom: 14,
-  },
-
-  trustCard: {
-    width: "100%",
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFDF9",
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#E8D4B8",
-    ...SHADOWS.card,
-  },
-
-  trustText: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#334155",
-    lineHeight: 20,
-  },
-
-  heroImpactCard: {
-    width: "100%",
-    backgroundColor: "#FFF7E8",
-    borderRadius: 22,
-    paddingTop: 18,
-    paddingBottom: 18,
-    paddingHorizontal: 18,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E8D4B8",
-    marginBottom: 14,
-    ...SHADOWS.card,
-  },
-
-  heroBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FDE7C7",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 10,
-  },
-
-  heroBadgeText: {
-    fontSize: 11,
-    fontWeight: "900",
-    color: "#92400E",
-    letterSpacing: 0.8,
-  },
-
-  heroTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#9A3412",
-    marginBottom: 6,
-    textAlign: "center",
-  },
-
-  heroNumber: {
-    fontSize: 42,
-    fontWeight: "900",
-    color: "#F97316",
-    lineHeight: 42,
-    marginBottom: 6,
-  },
-
-  heroSub: {
-    fontSize: 13,
-    color: "#64748B",
-    textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: 8,
-  },
-
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 14,
-  },
-
-  smallStatCard: {
-    flex: 1,
-    backgroundColor: "#FFFDF9",
-    borderRadius: 18,
     paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: "#E8D4B8",
-    alignItems: "center",
-    ...SHADOWS.card,
+    borderColor: "#E6EBF3",
   },
 
-  smallIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#FFF1DD",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
+  metricMiniValue: {
+    marginTop: 6,
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#18202B",
   },
 
-  smallStatLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#7C2D12",
+  metricMiniLabel: {
+    marginTop: 2,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: "700",
+    color: "#6E7686",
     textAlign: "center",
-    marginBottom: 6,
-    minHeight: 32,
   },
 
-  smallStatNumber: {
+  impactCard: {
+    backgroundColor: "#FFF3E2",
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#F2D2A6",
+  },
+
+  impactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  impactTextWrap: {
+    flex: 1,
+  },
+
+  impactValue: {
     fontSize: 22,
     fontWeight: "900",
-    color: "#B45309",
-    lineHeight: 24,
-    marginBottom: 4,
+    color: "#1C2430",
   },
 
-  smallStatSub: {
-    fontSize: 11,
-    color: "#64748B",
-    textAlign: "center",
-    lineHeight: 15,
+  impactLabel: {
+    marginTop: 2,
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#6D5846",
   },
 
-  socialProofCard: {
-    width: "100%",
+  sectionHeader: {
+    marginTop: 4,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFF3E8",
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: "#F1D0B5",
-    marginBottom: 16,
-  },
-
-  socialProofText: {
-    flex: 1,
-    marginLeft: 10,
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#7C2D12",
-    lineHeight: 18,
-  },
-
-  howItWorksCard: {
-    width: "100%",
-    backgroundColor: "#FFFDF9",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#E8D4B8",
-    ...SHADOWS.card,
+    justifyContent: "space-between",
   },
 
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#7C2D12",
-    marginBottom: 14,
-  },
-
-  stepItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-
-  stepNumberWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#F97316",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    marginTop: 2,
-  },
-
-  stepNumber: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "900",
-  },
-
-  stepTextWrap: {
-    flex: 1,
-  },
-
-  stepTitle: {
     fontSize: 14,
-    fontWeight: "800",
-    color: "#1E293B",
-    marginBottom: 3,
+    fontWeight: "900",
+    color: "#101828",
+    letterSpacing: 0.4,
   },
 
-  stepDescription: {
+  sectionLink: {
     fontSize: 12,
-    color: "#64748B",
-    lineHeight: 17,
+    fontWeight: "800",
+    color: "#2A5D9C",
   },
 
-  stepDivider: {
-    height: 1,
-    backgroundColor: "#F1E1C8",
-    marginVertical: 12,
-    marginLeft: 40,
-  },
-
-  buttonWrap: {
-    marginTop: 2,
+  bakeryRow: {
+    flexDirection: "row",
+    gap: 10,
   },
 
   bakeryCard: {
-    width: "100%",
-    backgroundColor: "#FFF7E8",
+    flex: 1,
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    marginTop: 16,
+    padding: 8,
     borderWidth: 1,
-    borderColor: "#F1D0B5",
-    ...SHADOWS.card,
+    borderColor: "#E6EBF3",
   },
 
-  bakeryIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#FDE7C7",
+  bakeryImage: {
+    height: 76,
+    borderRadius: 16,
+    backgroundColor: "#B98553",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
 
-  bakeryCardTitle: {
-    fontSize: 16,
+  bakeryImageAlt: {
+    backgroundColor: "#D6A063",
+  },
+
+  bakeryImageSoft: {
+    backgroundColor: "#C6924F",
+  },
+
+  bakeryName: {
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+
+  bakeryMeta: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#667085",
+  },
+
+  footerBand: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#EAF1FB",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#D5E0F1",
+  },
+
+  footerBandKicker: {
+    fontSize: 10,
     fontWeight: "900",
-    color: "#7C2D12",
-    marginBottom: 6,
-    textAlign: "center",
+    color: "#2A5D9C",
+    letterSpacing: 0.6,
   },
 
-  bakeryCardText: {
-    fontSize: 12,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: 8,
-  },
-
-  bakeryButtonWrap: {
-    width: "100%",
-    marginTop: 14,
-  },
-
-  bottomNote: {
-    marginTop: 14,
-    fontSize: 12,
-    color: "#475569",
-    textAlign: "center",
-    lineHeight: 18,
-    paddingHorizontal: 12,
+  footerBandTitle: {
+    marginTop: 4,
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#173F77",
   },
 });
