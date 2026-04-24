@@ -70,15 +70,17 @@ export default function FirinSec() {
       isRefresh ? setRefreshing(true) : setLoading(true);
 
       const response = await fetch(`${API_BASE}/mobile/bakeries`);
-      const data = await response.json();
+const data = await response.json();
 
-      const list = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.bakeries)
-        ? data.bakeries
-        : Array.isArray(data?.items)
-        ? data.items
-        : [];
+const list = Array.isArray(data)
+  ? data
+  : Array.isArray(data?.bakeries)
+  ? data.bakeries
+  : Array.isArray(data?.items)
+  ? data.items
+  : [];
+
+setBakeries(list);
 
       const normalized = list
         .map((item: any, index: number) => normalizeBakery(item, index))
