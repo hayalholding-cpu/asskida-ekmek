@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -5,6 +6,7 @@ import {
   Alert,
   Modal,
   SafeAreaView,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -13,70 +15,98 @@ import {
 } from "react-native";
 import { API } from "../lib/api";
 
-function toNumber(value: unknown, fallback = 0) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-}
+const PAYMENT_MODE: "demo" | "live" = "demo";
 
 function cleanText(value: unknown, fallback = "") {
   const text = String(value ?? "").trim();
   return text || fallback;
 }
 
-function formatProductName(value: string) {
-  const v = cleanText(value).toLowerCase();
-
-  if (v === "ekmek") return "Ekmek";
-  if (v === "ramazan_pidesi") return "Ramazan Pidesi";
-  if (v === "ramazan pidesi") return "Ramazan Pidesi";
-  if (v === "simit") return "Simit";
-  if (v === "poğaça" || v === "pogaca") return "Poğaça";
-
-  if (!v) return "Ürün";
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function toNumber(value: unknown, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
 }
 
-function formatPrice(amount: number) {
-  return `₺${amount}`;
+function formatPrice(value: number) {
+  return `₺${value.toLocaleString("tr-TR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
-export default function PaymentScreen() {
+function normalizeProductType(value: string) {
+  const v = value.toLocaleLowerCase("tr-TR");
+
+  if (v.includes("pide")) return "pide";
+  if (v.includes("ekmek")) return "ekmek";
+  if (v.includes("simit")) return "simit";
+  if (v.includes("poğaça") || v.includes("pogaca")) return "pogaca";
+
+  return v || "ekmek";
+}
+
+export default function OdemeScreen() {
   const params = useLocalSearchParams();
-
-  const bakeryId = cleanText(params.bakeryId);
-  const bakeryName = cleanText(params.bakeryName, "Fırın");
-  const productType = cleanText(params.productType, "Ekmek");
-  const count = toNumber(params.count, 1);
-  const totalPrice = toNumber(params.totalPrice, 0);
-
   const [loading, setLoading] = useState(false);
   const [successVisible, setSuccessVisible] = useState(false);
 
   const summary = useMemo(() => {
+    const bakeryId = cleanText(params.bakeryId);
+    const bakeryName = cleanText(params.bakeryName, "Seçili Fırın");
+    const productName = cleanText(params.productName, "Ekmek");
+    const productType = normalizeProductType(
+      cleanText(params.productType, productName)
+    );
+    const count = Math.max(1, toNumber(params.count, 1));
+    const unitPrice = toNumber(params.unitPrice, 0);
+    const totalPriceParam = toNumber(params.totalPrice, 0);
+    const totalPrice = totalPriceParam > 0 ? totalPriceParam : count * unitPrice;
+    const district = cleanText(params.district);
+    const neighborhood = cleanText(params.neighborhood);
+    const note = cleanText(params.note);
+
     return {
       bakeryId,
       bakeryName,
-      productType: formatProductName(productType),
-      count: count > 0 ? count : 1,
-      totalPrice: totalPrice >= 0 ? totalPrice : 0,
+      productName,
+      productType,
+      count,
+      unitPrice,
+      totalPrice,
+      district,
+      neighborhood,
+      note,
     };
-  }, [bakeryId, bakeryName, productType, count, totalPrice]);
+  }, [params]);
 
-  async function handleCompletePayment() {
+  async function completePayment() {
     if (!summary.bakeryId) {
-      Alert.alert("Eksik bilgi", "Fırın bilgisi bulunamadı.");
+      Alert.alert(
+        "Eksik bilgi",
+        "Fırın bilgisi bulunamadı. Lütfen tekrar fırın seç."
+      );
       return;
     }
 
     setLoading(true);
 
     try {
+      if (PAYMENT_MODE === "demo") {
+        await new Promise((resolve) => setTimeout(resolve, 650));
+        setSuccessVisible(true);
+        return;
+      }
+
       const data = await API.mobilePaymentComplete({
         bakeryId: summary.bakeryId,
         bakeryName: summary.bakeryName,
         productType: summary.productType,
+        productName: summary.productName,
         count: summary.count,
         totalPrice: summary.totalPrice,
+        note: summary.note,
+        paymentMode: "live",
+        paymentProvider: "virtual-pos",
       });
 
       if (data?.ok === false) {
@@ -86,7 +116,7 @@ export default function PaymentScreen() {
       setSuccessVisible(true);
     } catch (error: any) {
       Alert.alert(
-        "Hata",
+        "Ödeme tamamlanamadı",
         error?.message || "İşlem sırasında bir sorun oluştu."
       );
     } finally {
@@ -94,114 +124,152 @@ export default function PaymentScreen() {
     }
   }
 
+  function finishSuccess() {
+    setSuccessVisible(false);
+
+    router.replace({
+      pathname: "/basarili",
+      params: {
+        bakeryId: summary.bakeryId,
+        bakeryName: summary.bakeryName,
+        productName: summary.productName,
+        productType: summary.productType,
+        count: String(summary.count),
+        totalPrice: String(summary.totalPrice),
+        paymentMode: PAYMENT_MODE,
+      },
+    });
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F7F2EA" />
+      <StatusBar barStyle="light-content" backgroundColor="#FF6A00" />
 
-      <View style={styles.container}>
-        <View style={styles.headerArea}>
-          <Text style={styles.title}>Ödeme</Text>
-          <Text style={styles.subtitle}>Ekmek bırakma işlemini tamamla</Text>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>Ödeme</Text>
+
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topCard}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="card-outline" size={30} color="#FF6A00" />
+          </View>
+
+          <Text style={styles.title}>Ekmek bırakma işlemini tamamla</Text>
+          <Text style={styles.subtitle}>
+            İşlem özetini kontrol et, ardından test ödemesini tamamla.
+          </Text>
         </View>
 
-        <View style={styles.contentArea}>
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Sipariş Özeti</Text>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryTitle}>İşlem Özeti</Text>
 
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>{summary.count} adet</Text>
-              </View>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{summary.count} adet</Text>
             </View>
+          </View>
 
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Fırın</Text>
+            <Text style={styles.infoValue}>{summary.bakeryName}</Text>
+          </View>
+
+          {!!(summary.neighborhood || summary.district) && (
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Fırın</Text>
-              <Text
-                style={styles.infoValue}
-                numberOfLines={2}
-                ellipsizeMode="tail"
-              >
-                {summary.bakeryName}
+              <Text style={styles.infoLabel}>Konum</Text>
+              <Text style={styles.infoValue}>
+                {[summary.neighborhood, summary.district].filter(Boolean).join(
+                  " / "
+                )}
               </Text>
             </View>
+          )}
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Ürün</Text>
-              <Text style={styles.infoValue} numberOfLines={2}>
-                {summary.productType}
-              </Text>
-            </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Ürün</Text>
+            <Text style={styles.infoValue}>{summary.productName}</Text>
+          </View>
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Adet</Text>
-              <Text style={styles.infoValue}>{summary.count}</Text>
-            </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Birim Fiyat</Text>
+            <Text style={styles.infoValue}>{formatPrice(summary.unitPrice)}</Text>
+          </View>
 
-            <View style={styles.divider} />
+          <View style={styles.divider} />
 
-            <View style={styles.totalBox}>
-              <View style={styles.totalTextWrap}>
-                <Text style={styles.totalLabel}>Toplam</Text>
-                <Text style={styles.totalHint}>Ödenecek tutar</Text>
-              </View>
-
-              <Text style={styles.totalPrice}>
-                {formatPrice(summary.totalPrice)}
-              </Text>
-            </View>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Toplam</Text>
+            <Text style={styles.totalValue}>{formatPrice(summary.totalPrice)}</Text>
           </View>
         </View>
 
-        <View style={styles.bottomArea}>
-          <TouchableOpacity
-            style={[styles.payButton, loading && styles.payButtonDisabled]}
-            onPress={handleCompletePayment}
-            disabled={loading}
-            activeOpacity={0.9}
-          >
-            {loading ? (
-              <View style={styles.loadingWrap}>
-                <ActivityIndicator size="small" color="#FFFFFF" />
-                <Text style={styles.payButtonText}>İşlem yapılıyor...</Text>
-              </View>
-            ) : (
-              <Text style={styles.payButtonText}>Ödemeyi Tamamla</Text>
-            )}
-          </TouchableOpacity>
+        <View style={styles.paymentCard}>
+          <Text style={styles.paymentTitle}>Ödeme Yöntemi</Text>
 
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            disabled={loading}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.backButtonText}>Geri dön</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <Modal visible={successVisible} transparent animationType="fade">
-        <View style={styles.successOverlay}>
-          <View style={styles.successCard}>
-            <View style={styles.successIconWrap}>
-              <Text style={styles.successIcon}>✓</Text>
+          <View style={styles.paymentMethod}>
+            <View style={styles.paymentIcon}>
+              <Ionicons name="wallet-outline" size={22} color="#FF6A00" />
             </View>
 
-            <Text style={styles.successTitle}>İşlem tamamlandı</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.paymentName}>Test Ödemesi</Text>
+              <Text style={styles.paymentDesc}>
+                Sunum için demo ödeme akışı. Canlıda sanal POS entegrasyonuna
+                bağlanacak şekilde hazırlandı.
+              </Text>
+            </View>
 
+            <Ionicons name="checkmark-circle" size={24} color="#FF6A00" />
+          </View>
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.92}
+          style={[styles.payButton, loading && styles.payButtonDisabled]}
+          disabled={loading}
+          onPress={completePayment}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.payButtonText}>Test Ödemesini Tamamla</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={styles.secureRow}>
+          <Ionicons name="shield-checkmark-outline" size={15} color="#9B9088" />
+          <Text style={styles.secureText}>
+            Canlı ödeme aşamasında bu akış sanal POS sağlayıcısına bağlanacaktır.
+          </Text>
+        </View>
+      </ScrollView>
+
+      <Modal visible={successVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.successModal}>
+            <View style={styles.successIcon}>
+              <Ionicons name="checkmark" size={36} color="#FFFFFF" />
+            </View>
+
+            <Text style={styles.successTitle}>İşlem Başarılı</Text>
             <Text style={styles.successText}>
-              Ekmek bırakma işlemin başarıyla tamamlandı.
+              Test ödeme başarıyla tamamlandı. Ekmek bırakma işlemi demo olarak
+              onaylandı.
             </Text>
 
-            <TouchableOpacity
-              style={styles.successButton}
-              onPress={() => {
-                setSuccessVisible(false);
-                router.replace("/");
-              }}
-              activeOpacity={0.9}
-            >
-              <Text style={styles.successButtonText}>Ana Sayfaya Dön</Text>
+            <TouchableOpacity style={styles.successButton} onPress={finishSuccess}>
+              <Text style={styles.successButtonText}>Tamam</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -213,269 +281,267 @@ export default function PaymentScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#F7F2EA",
+    backgroundColor: "#FFF9F2",
   },
-
-  container: {
-    flex: 1,
-    backgroundColor: "#F7F2EA",
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 14,
+  header: {
+    height: 62,
+    backgroundColor: "#FF6A00",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
   },
-
-  headerArea: {
-    marginTop: 2,
-    marginBottom: 14,
-  },
-
-  title: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#2B1208",
-    letterSpacing: -0.4,
-  },
-
-  subtitle: {
-    marginTop: 4,
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#7A675E",
-  },
-
-  contentArea: {
-    flex: 1,
+  backButton: {
+    width: 42,
+    height: 42,
+    alignItems: "center",
     justifyContent: "center",
   },
-
-  card: {
-    backgroundColor: "#FFFCF8",
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+  headerTitle: {
+    flex: 1,
+    textAlign: "center",
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  headerSpacer: {
+    width: 42,
+  },
+  scroll: {
+    flex: 1,
+  },
+  content: {
+    padding: 18,
+    paddingBottom: 34,
+  },
+  topCard: {
+    borderRadius: 28,
+    backgroundColor: "#FFFFFF",
+    padding: 20,
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: "#EEE1D2",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    borderColor: "#FFE1C4",
+    shadowColor: "#FF6A00",
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
     elevation: 3,
   },
-
-  cardHeader: {
-    flexDirection: "row",
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#FFF0DF",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-    gap: 10,
-  },
-
-  cardTitle: {
-    flex: 1,
-    fontSize: 19,
-    fontWeight: "900",
-    color: "#2B1208",
-    letterSpacing: -0.3,
-  },
-
-  countBadge: {
-    backgroundColor: "#F3E8D8",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-
-  countBadgeText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#8E6838",
-  },
-
-  infoRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    gap: 12,
-  },
-
-  infoLabel: {
-    width: "34%",
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#8A7A72",
-    paddingTop: 2,
-  },
-
-  infoValue: {
-    width: "66%",
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#2B1208",
-    textAlign: "right",
-    lineHeight: 24,
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: "#EFE3D6",
-    marginTop: 4,
+    justifyContent: "center",
     marginBottom: 12,
   },
-
-  totalBox: {
-    backgroundColor: "#FFF3E1",
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+  title: {
+    textAlign: "center",
+    fontSize: 19,
+    fontWeight: "900",
+    color: "#312820",
+  },
+  subtitle: {
+    marginTop: 8,
+    textAlign: "center",
+    fontSize: 13,
+    lineHeight: 19,
+    color: "#8E7F72",
+  },
+  summaryCard: {
+    marginTop: 18,
+    borderRadius: 24,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F1E2D4",
+    padding: 16,
+  },
+  summaryHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+    marginBottom: 10,
   },
-
-  totalTextWrap: {
-    flex: 1,
-    paddingRight: 10,
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#312820",
   },
-
-  totalLabel: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#9A6A1F",
-    marginBottom: 2,
+  countBadge: {
+    borderRadius: 999,
+    backgroundColor: "#FFF0DF",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
-
-  totalHint: {
+  countBadgeText: {
     fontSize: 12,
-    color: "#AD8A5A",
-    fontWeight: "500",
-  },
-
-  totalPrice: {
-    fontSize: 28,
     fontWeight: "900",
-    color: "#D97A00",
-    letterSpacing: -0.6,
+    color: "#FF6A00",
   },
-
-  bottomArea: {
-    paddingTop: 14,
-    gap: 8,
-  },
-
-  payButton: {
-    minHeight: 54,
-    borderRadius: 16,
-    backgroundColor: "#D97A00",
+  infoRow: {
+    minHeight: 34,
+    flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 18,
-    shadowColor: "#D97A00",
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
-    elevation: 4,
+    gap: 14,
   },
-
-  payButtonDisabled: {
-    opacity: 0.72,
+  infoLabel: {
+    fontSize: 13,
+    color: "#8E7F72",
   },
-
-  payButtonText: {
-    fontSize: 18,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    letterSpacing: -0.2,
+  infoValue: {
+    flex: 1,
+    textAlign: "right",
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#312820",
   },
-
-  loadingWrap: {
+  divider: {
+    height: 1,
+    backgroundColor: "#F0E4D8",
+    marginVertical: 12,
+  },
+  totalRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    justifyContent: "space-between",
   },
-
-  backButton: {
-    minHeight: 34,
-    alignItems: "center",
-    justifyContent: "center",
+  totalLabel: {
+    fontSize: 17,
+    fontWeight: "900",
+    color: "#312820",
   },
-
-  backButtonText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#8B7A72",
+  totalValue: {
+    fontSize: 25,
+    fontWeight: "900",
+    color: "#FF6A00",
   },
-
-  successOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(24, 18, 10, 0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-
-  successCard: {
-    width: "100%",
-    maxWidth: 320,
+  paymentCard: {
+    marginTop: 16,
+    borderRadius: 24,
     backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    paddingHorizontal: 22,
-    paddingVertical: 24,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 7,
+    borderWidth: 1,
+    borderColor: "#F1E2D4",
+    padding: 16,
   },
-
-  successIconWrap: {
+  paymentTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#312820",
+    marginBottom: 12,
+  },
+  paymentMethod: {
+    minHeight: 72,
+    borderRadius: 20,
+    backgroundColor: "#FFF8EF",
+    borderWidth: 1,
+    borderColor: "#FFE1C4",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  paymentIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  paymentName: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#312820",
+  },
+  paymentDesc: {
+    marginTop: 3,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#8E7F72",
+  },
+  payButton: {
+    marginTop: 18,
+    height: 58,
+    borderRadius: 22,
+    backgroundColor: "#FF6A00",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#FF6A00",
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
+  },
+  payButtonDisabled: {
+    opacity: 0.6,
+  },
+  payButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  secureRow: {
+    marginTop: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  secureText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#9B9088",
+    textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(30, 22, 16, 0.42)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  successModal: {
+    width: "100%",
+    maxWidth: 380,
+    borderRadius: 30,
+    backgroundColor: "#FFFFFF",
+    padding: 24,
+    alignItems: "center",
+  },
+  successIcon: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "#EAF8EF",
+    backgroundColor: "#FF6A00",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 14,
   },
-
-  successIcon: {
-    fontSize: 34,
-    fontWeight: "900",
-    color: "#22B35E",
-    marginTop: -2,
-  },
-
   successTitle: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: "900",
-    color: "#1F2A22",
-    marginBottom: 6,
-    letterSpacing: -0.4,
+    color: "#312820",
   },
-
   successText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#5B675E",
+    marginTop: 8,
     textAlign: "center",
-    marginBottom: 18,
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#8E7F72",
   },
-
   successButton: {
-    minHeight: 46,
-    borderRadius: 14,
-    backgroundColor: "#22B35E",
+    marginTop: 20,
+    width: "100%",
+    height: 52,
+    borderRadius: 18,
+    backgroundColor: "#FF6A00",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 20,
-    alignSelf: "stretch",
   },
-
   successButtonText: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "900",
   },
 });
