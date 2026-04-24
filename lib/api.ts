@@ -1,9 +1,4 @@
-const DEFAULT_API_BASE = "https://api.ekmek.com.tr";
-const API_BASE = (process.env.EXPO_PUBLIC_API_URL?.trim() || DEFAULT_API_BASE).replace(
-  /\/+$/,
-  ""
-);
-
+const API_BASE = "https://api.ekmek.com.tr";
 type RequestOptions = RequestInit & {
   bodyJson?: unknown;
   timeoutMs?: number;
@@ -112,10 +107,6 @@ async function wakeBackend() {
   }
 }
 
-export async function ensureBackendReady() {
-  await wakeBackend();
-}
-
 export async function deliverSuspendedProduct(
   payload: DeliverSuspendedProductPayload
 ): Promise<DeliverSuspendedProductResponse> {
@@ -192,10 +183,8 @@ export const API = {
 
   mobileProducts: () => apiGet("/mobile/products"),
 
-  mobilePaymentComplete: async (payload: any) => {
-    await wakeBackend();
-    return apiPost("/mobile/payment-complete", payload);
-  },
+  mobilePaymentComplete: (payload: any) =>
+    apiPost("/mobile/payment-complete", payload),
 
   deliverSuspendedProduct: (payload: DeliverSuspendedProductPayload) =>
     deliverSuspendedProduct(payload),
