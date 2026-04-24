@@ -5,14 +5,13 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import MobileScreen from "../components/layout/MobileScreen";
 import { API } from "../lib/api";
 
 const PAYMENT_MODE: "demo" | "live" = "demo";
@@ -142,7 +141,7 @@ export default function OdemeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#FF6A00" />
 
       <View style={styles.header}>
@@ -155,14 +154,15 @@ export default function OdemeScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+      <MobileScreen
+        scroll
+        withTabBar={false}
+        backgroundColor="#FFF7ED"
+        contentStyle={styles.mobileContent}
       >
         <View style={styles.topCard}>
           <View style={styles.iconCircle}>
-            <Ionicons name="card-outline" size={30} color="#FF6A00" />
+            <Ionicons name="card-outline" size={28} color="#FF6A00" />
           </View>
 
           <Text style={styles.title}>Ekmek bırakma işlemini tamamla</Text>
@@ -189,9 +189,9 @@ export default function OdemeScreen() {
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Konum</Text>
               <Text style={styles.infoValue}>
-                {[summary.neighborhood, summary.district].filter(Boolean).join(
-                  " / "
-                )}
+                {[summary.neighborhood, summary.district]
+                  .filter(Boolean)
+                  .join(" / ")}
               </Text>
             </View>
           )}
@@ -219,7 +219,7 @@ export default function OdemeScreen() {
 
           <View style={styles.paymentMethod}>
             <View style={styles.paymentIcon}>
-              <Ionicons name="wallet-outline" size={22} color="#FF6A00" />
+              <Ionicons name="wallet-outline" size={21} color="#FF6A00" />
             </View>
 
             <View style={{ flex: 1 }}>
@@ -230,7 +230,7 @@ export default function OdemeScreen() {
               </Text>
             </View>
 
-            <Ionicons name="checkmark-circle" size={24} color="#FF6A00" />
+            <Ionicons name="checkmark-circle" size={23} color="#16A34A" />
           </View>
         </View>
 
@@ -253,13 +253,13 @@ export default function OdemeScreen() {
             Canlı ödeme aşamasında bu akış sanal POS sağlayıcısına bağlanacaktır.
           </Text>
         </View>
-      </ScrollView>
+      </MobileScreen>
 
       <Modal visible={successVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.successModal}>
             <View style={styles.successIcon}>
-              <Ionicons name="checkmark" size={36} color="#FFFFFF" />
+              <Ionicons name="checkmark-circle" size={40} color="#FFFFFF" />
             </View>
 
             <Text style={styles.successTitle}>İşlem Başarılı</Text>
@@ -274,21 +274,21 @@ export default function OdemeScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: "#FFF9F2",
+    backgroundColor: "#FFF7ED",
   },
   header: {
-    height: 62,
+    height: 58,
     backgroundColor: "#FF6A00",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   backButton: {
     width: 42,
@@ -306,61 +306,58 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 42,
   },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    padding: 18,
-    paddingBottom: 34,
+  mobileContent: {
+    paddingTop: 14,
+    paddingBottom: 28,
   },
   topCard: {
-    borderRadius: 28,
+    borderRadius: 24,
     backgroundColor: "#FFFFFF",
-    padding: 20,
+    padding: 16,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#FFE1C4",
     shadowColor: "#FF6A00",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: "#FFF0DF",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   title: {
     textAlign: "center",
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: "900",
     color: "#312820",
   },
   subtitle: {
-    marginTop: 8,
+    marginTop: 6,
     textAlign: "center",
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12.5,
+    lineHeight: 18,
     color: "#8E7F72",
   },
   summaryCard: {
-    marginTop: 18,
-    borderRadius: 24,
+    marginTop: 14,
+    borderRadius: 22,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#F1E2D4",
-    padding: 16,
+    padding: 15,
   },
   summaryHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   summaryTitle: {
     fontSize: 16,
@@ -370,8 +367,8 @@ const styles = StyleSheet.create({
   countBadge: {
     borderRadius: 999,
     backgroundColor: "#FFF0DF",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
   },
   countBadgeText: {
     fontSize: 12,
@@ -379,27 +376,27 @@ const styles = StyleSheet.create({
     color: "#FF6A00",
   },
   infoRow: {
-    minHeight: 34,
+    minHeight: 31,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: 14,
+    gap: 12,
   },
   infoLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: "#8E7F72",
   },
   infoValue: {
     flex: 1,
     textAlign: "right",
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "800",
     color: "#312820",
   },
   divider: {
     height: 1,
     backgroundColor: "#F0E4D8",
-    marginVertical: 12,
+    marginVertical: 10,
   },
   totalRow: {
     flexDirection: "row",
@@ -407,44 +404,44 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   totalLabel: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "900",
     color: "#312820",
   },
   totalValue: {
-    fontSize: 25,
+    fontSize: 23,
     fontWeight: "900",
     color: "#FF6A00",
   },
   paymentCard: {
-    marginTop: 16,
-    borderRadius: 24,
+    marginTop: 14,
+    borderRadius: 22,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#F1E2D4",
-    padding: 16,
+    padding: 15,
   },
   paymentTitle: {
     fontSize: 15,
     fontWeight: "900",
     color: "#312820",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   paymentMethod: {
-    minHeight: 72,
-    borderRadius: 20,
+    minHeight: 68,
+    borderRadius: 18,
     backgroundColor: "#FFF8EF",
     borderWidth: 1,
     borderColor: "#FFE1C4",
-    padding: 12,
+    padding: 11,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   paymentIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 15,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -456,33 +453,33 @@ const styles = StyleSheet.create({
   },
   paymentDesc: {
     marginTop: 3,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 11.5,
+    lineHeight: 16,
     color: "#8E7F72",
   },
   payButton: {
-    marginTop: 18,
-    height: 58,
-    borderRadius: 22,
+    marginTop: 15,
+    height: 54,
+    borderRadius: 20,
     backgroundColor: "#FF6A00",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#FF6A00",
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 3,
   },
   payButtonDisabled: {
     opacity: 0.6,
   },
   payButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "900",
   },
   secureRow: {
-    marginTop: 14,
+    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -490,7 +487,8 @@ const styles = StyleSheet.create({
   },
   secureText: {
     flex: 1,
-    fontSize: 12,
+    fontSize: 11.5,
+    lineHeight: 16,
     color: "#9B9088",
     textAlign: "center",
   },
@@ -510,10 +508,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   successIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#FF6A00",
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: "#16A34A",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 14,
@@ -521,21 +519,21 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 21,
     fontWeight: "900",
-    color: "#312820",
+    color: "#14532D",
   },
   successText: {
     marginTop: 8,
     textAlign: "center",
     fontSize: 14,
     lineHeight: 21,
-    color: "#8E7F72",
+    color: "#5F6F63",
   },
   successButton: {
     marginTop: 20,
     width: "100%",
     height: 52,
     borderRadius: 18,
-    backgroundColor: "#FF6A00",
+    backgroundColor: "#16A34A",
     alignItems: "center",
     justifyContent: "center",
   },

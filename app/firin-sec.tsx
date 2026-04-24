@@ -1,14 +1,15 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  RefreshControl,
+  Image,
   ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
-import { useRouter } from "expo-router";
+import MobileScreen from "../components/layout/MobileScreen";
 
 type BakeryItem = {
   id: string;
@@ -37,7 +38,9 @@ function normalizeBakery(item: any, index: number): BakeryItem {
     id,
     name: String(item?.bakeryName ?? item?.name ?? `Fırın ${index + 1}`),
     district: String(
-      item?.district ?? item?.districtName ?? slugToLabel(item?.districtSlug ?? "")
+      item?.district ??
+        item?.districtName ??
+        slugToLabel(item?.districtSlug ?? "")
     ),
     neighborhood: String(
       item?.neighborhood ??
@@ -67,20 +70,19 @@ export default function FirinSec() {
 
   async function fetchBakeries(isRefresh = false) {
     try {
-      isRefresh ? setRefreshing(true) : setLoading(true);
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
 
       const response = await fetch(`${API_BASE}/mobile/bakeries`);
-const data = await response.json();
+      const data = await response.json();
 
-const list = Array.isArray(data)
-  ? data
-  : Array.isArray(data?.bakeries)
-  ? data.bakeries
-  : Array.isArray(data?.items)
-  ? data.items
-  : [];
-
-setBakeries(list);
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.bakeries)
+        ? data.bakeries
+        : Array.isArray(data?.items)
+        ? data.items
+        : [];
 
       const normalized = list
         .map((item: any, index: number) => normalizeBakery(item, index))
@@ -121,145 +123,51 @@ setBakeries(list);
     });
   }, [bakeries, search, district]);
 
-  const totalPending = useMemo(
-    () => filtered.reduce((sum, b) => sum + b.pendingBread, 0),
-    [filtered]
-  );
-
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: "#FAF7F2" }}
-      contentContainerStyle={{ padding: 20, paddingBottom: 36 }}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => fetchBakeries(true)}
+    <MobileScreen scroll withTabBar backgroundColor="#FFF7ED">
+      {/* HEADER */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+        <Image
+          source={require("../assets/images/logo.png")}
+          style={{ width: 90, height: 36, resizeMode: "contain" }}
         />
-      }
-    >
-      <View>
-        <Text style={{ fontSize: 24, fontWeight: "800", color: "#2B211B" }}>
-          Fırın Seç
-        </Text>
 
-        <Text
-          style={{
-            marginTop: 6,
-            fontSize: 14,
-            lineHeight: 20,
-            color: "#7A6E66",
-          }}
-        >
-          Askıya ekmek bırakmak istediğin fırını seç. Seçtiğin fırına ürün
-          bırakma adımında devam edeceğiz.
-        </Text>
-      </View>
-
-      <View
-        style={{
-          marginTop: 20,
-          backgroundColor: "#F57C00",
-          borderRadius: 24,
-          padding: 20,
-        }}
-      >
-        <Text style={{ color: "#FFE8D2", fontSize: 13, fontWeight: "700" }}>
-          İstanbul Fırıncılar Odası güvencesiyle
-        </Text>
-
-        <Text
-          style={{
-            marginTop: 8,
-            color: "#FFFFFF",
-            fontSize: 28,
-            fontWeight: "900",
-          }}
-        >
-          {filtered.length}
-        </Text>
-
-        <Text style={{ color: "#FFFFFF", marginTop: 2 }}>
-          uygun fırın listeleniyor
-        </Text>
-
-        <Text
-          style={{
-            marginTop: 10,
-            color: "#FFE8D2",
-            fontSize: 13,
-            lineHeight: 19,
-          }}
-        >
-          Bu listede aktif fırınlar ve askıdaki ürün durumları gösterilir.
-        </Text>
-      </View>
-
-      <View
-        style={{
-          marginTop: 16,
-          flexDirection: "row",
-          gap: 12,
-        }}
-      >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "#FFFFFF",
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <Text style={{ fontSize: 20, fontWeight: "800", color: "#2B211B" }}>
-            {totalPending}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 22, fontWeight: "900", color: "#2B211B" }}>
+            Fırın Seç
           </Text>
-          <Text style={{ marginTop: 4, fontSize: 12, color: "#7A6E66" }}>
-            askıda ekmek
-          </Text>
-        </View>
-
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "#FFFFFF",
-            borderRadius: 18,
-            padding: 16,
-          }}
-        >
-          <Text style={{ fontSize: 20, fontWeight: "800", color: "#2B211B" }}>
-            {district}
-          </Text>
-          <Text style={{ marginTop: 4, fontSize: 12, color: "#7A6E66" }}>
-            aktif filtre
+          <Text style={{ fontSize: 12, color: "#7A6E66" }}>
+            Askıya ekmek bırakacağın fırını seç
           </Text>
         </View>
       </View>
 
+      {/* SEARCH */}
       <View
         style={{
-          marginTop: 18,
+          marginTop: 14,
           backgroundColor: "#FFFFFF",
-          borderRadius: 20,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
+          borderRadius: 18,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          borderWidth: 1,
+          borderColor: "#F2E4D8",
         }}
       >
         <TextInput
-          value={search}
-          onChangeText={setSearch}
           placeholder="Fırın, ilçe veya mahalle ara"
           placeholderTextColor="#9A8F87"
-          style={{
-            fontSize: 15,
-            color: "#2B211B",
-          }}
+          value={search}
+          onChangeText={setSearch}
+          style={{ color: "#2B211B", fontSize: 14 }}
         />
       </View>
 
+      {/* DISTRICTS */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 4 }}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 2 }}
       >
         {districts.map((item) => {
           const active = district === item;
@@ -268,19 +176,22 @@ setBakeries(list);
             <TouchableOpacity
               key={item}
               onPress={() => setDistrict(item)}
+              activeOpacity={0.85}
               style={{
-                marginRight: 10,
-                paddingHorizontal: 16,
-                paddingVertical: 10,
+                marginRight: 8,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
                 borderRadius: 999,
-                backgroundColor: active ? "#F57C00" : "#FFFFFF",
+                backgroundColor: active ? "#F97316" : "#FFFFFF",
+                borderWidth: 1,
+                borderColor: active ? "#F97316" : "#F2E4D8",
               }}
             >
               <Text
                 style={{
-                  fontSize: 13,
+                  color: active ? "#FFF" : "#5A4F49",
                   fontWeight: "800",
-                  color: active ? "#FFFFFF" : "#5A4F49",
+                  fontSize: 12,
                 }}
               >
                 {item}
@@ -290,33 +201,11 @@ setBakeries(list);
         })}
       </ScrollView>
 
-      <View
-        style={{
-          marginTop: 18,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: "800", color: "#2B211B" }}>
-          Uygun Fırınlar
-        </Text>
-
-        <Text style={{ fontSize: 13, color: "#7A6E66" }}>
-          {filtered.length} sonuç
-        </Text>
-      </View>
-
+      {/* LIST */}
       {loading ? (
-        <View
-          style={{
-            marginTop: 28,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <ActivityIndicator size="large" color="#F57C00" />
-          <Text style={{ marginTop: 12, color: "#7A6E66" }}>
+        <View style={{ marginTop: 30, alignItems: "center" }}>
+          <ActivityIndicator size="large" color="#F97316" />
+          <Text style={{ marginTop: 10, color: "#7A6E66", fontWeight: "700" }}>
             Fırınlar yükleniyor...
           </Text>
         </View>
@@ -325,22 +214,14 @@ setBakeries(list);
           style={{
             marginTop: 16,
             backgroundColor: "#FFFFFF",
-            borderRadius: 22,
-            padding: 18,
+            borderRadius: 20,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: "#F2E4D8",
           }}
         >
-          <Text style={{ fontSize: 16, fontWeight: "800", color: "#2B211B" }}>
+          <Text style={{ fontSize: 15, fontWeight: "900", color: "#2B211B" }}>
             Sonuç bulunamadı
-          </Text>
-          <Text
-            style={{
-              marginTop: 6,
-              fontSize: 13,
-              lineHeight: 19,
-              color: "#7A6E66",
-            }}
-          >
-            Arama kelimesini veya ilçe filtresini değiştirerek tekrar dene.
           </Text>
         </View>
       ) : (
@@ -350,7 +231,7 @@ setBakeries(list);
             activeOpacity={0.92}
             onPress={() =>
               router.push({
-               pathname: "/(tabs)/urun-birak",
+                pathname: "/(tabs)/urun-birak",
                 params: {
                   bakeryId: bakery.id,
                   id: bakery.id,
@@ -363,106 +244,40 @@ setBakeries(list);
               })
             }
             style={{
-              marginTop: 14,
+              marginTop: 12,
               backgroundColor: "#FFFFFF",
-              borderRadius: 24,
-              padding: 18,
+              borderRadius: 20,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: "#F2E4D8",
             }}
           >
+            <Text style={{ fontSize: 16, fontWeight: "900", color: "#2B211B" }}>
+              {bakery.name}
+            </Text>
+
+            <Text style={{ marginTop: 3, color: "#7A6E66", fontSize: 12 }}>
+              {[bakery.district, bakery.neighborhood].join(" / ")}
+            </Text>
+
             <View
               style={{
+                marginTop: 10,
                 flexDirection: "row",
                 justifyContent: "space-between",
-                alignItems: "flex-start",
               }}
             >
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: "800",
-                    color: "#2B211B",
-                  }}
-                >
-                  {bakery.name}
-                </Text>
-
-                <Text
-                  style={{
-                    marginTop: 6,
-                    fontSize: 13,
-                    lineHeight: 19,
-                    color: "#7A6E66",
-                  }}
-                >
-                  {[bakery.district, bakery.neighborhood]
-                    .filter(Boolean)
-                    .join(" / ")}
-                </Text>
-              </View>
-
-              <View
-                style={{
-                  backgroundColor: "#FFF0E2",
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 999,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#D96B00",
-                    fontSize: 12,
-                    fontWeight: "800",
-                  }}
-                >
-                  {bakery.pendingBread} askıda
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={{
-                marginTop: 16,
-                backgroundColor: "#FAF7F2",
-                borderRadius: 18,
-                padding: 14,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  lineHeight: 19,
-                  color: "#7A6E66",
-                }}
-              >
-                Bu fırını seçerek askıya ürün bırakma adımına geçebilirsin.
+              <Text style={{ color: "#F97316", fontWeight: "900" }}>
+                {bakery.pendingBread} askıda
               </Text>
-            </View>
 
-            <View
-              style={{
-                marginTop: 14,
-                backgroundColor: "#F57C00",
-                borderRadius: 18,
-                paddingVertical: 14,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text
-                style={{
-                  color: "#FFFFFF",
-                  fontSize: 14,
-                  fontWeight: "900",
-                }}
-              >
-                Bu fırını seç
+              <Text style={{ color: "#16A34A", fontWeight: "800" }}>
+                ● Aktif
               </Text>
             </View>
           </TouchableOpacity>
         ))
       )}
-    </ScrollView>
+    </MobileScreen>
   );
 }

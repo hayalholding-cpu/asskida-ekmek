@@ -4,8 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  SafeAreaView,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -13,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import MobileScreen from "../../components/layout/MobileScreen";
 import { API } from "../../lib/api";
 
 type MobileProduct = {
@@ -155,7 +154,7 @@ export default function UrunBirakScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor="#FF6A00" />
 
       <View style={styles.header}>
@@ -168,10 +167,11 @@ export default function UrunBirakScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+      <MobileScreen
+        scroll
+        withTabBar={false}
+        backgroundColor="#FFF7ED"
+        contentStyle={styles.mobileContent}
       >
         <View style={styles.heroCard}>
           <View style={styles.heroTextArea}>
@@ -186,13 +186,13 @@ export default function UrunBirakScreen() {
 
         <View style={styles.counterCard}>
           <TouchableOpacity style={styles.counterButton} onPress={decrease}>
-            <Ionicons name="remove" size={22} color="#FF6A00" />
+            <Ionicons name="remove" size={21} color="#FF6A00" />
           </TouchableOpacity>
 
           <Text style={styles.countText}>{count}</Text>
 
           <TouchableOpacity style={styles.counterButton} onPress={increase}>
-            <Ionicons name="add" size={22} color="#FF6A00" />
+            <Ionicons name="add" size={21} color="#FF6A00" />
           </TouchableOpacity>
         </View>
 
@@ -234,9 +234,9 @@ export default function UrunBirakScreen() {
                   </View>
 
                   {active ? (
-                    <Ionicons name="checkmark-circle" size={24} color="#FF6A00" />
+                    <Ionicons name="checkmark-circle" size={23} color="#FF6A00" />
                   ) : (
-                    <Ionicons name="ellipse-outline" size={22} color="#E8D6C5" />
+                    <Ionicons name="ellipse-outline" size={21} color="#E8D6C5" />
                   )}
                 </TouchableOpacity>
               );
@@ -249,7 +249,7 @@ export default function UrunBirakScreen() {
         <View style={styles.bakeryCard}>
           <View style={styles.bakeryMain}>
             <View style={styles.bakeryIcon}>
-              <Ionicons name="storefront" size={20} color="#FF6A00" />
+              <Ionicons name="storefront" size={19} color="#FF6A00" />
             </View>
 
             <View style={{ flex: 1 }}>
@@ -262,7 +262,7 @@ export default function UrunBirakScreen() {
             </View>
           </View>
 
-          <Ionicons name="checkmark-circle" size={26} color="#FF6A00" />
+          <Ionicons name="checkmark-circle" size={25} color="#FF6A00" />
         </View>
 
         <Text style={styles.sectionLabel}>Notun</Text>
@@ -325,22 +325,22 @@ export default function UrunBirakScreen() {
             Ödeme işlemleri güvenle yapılmaktadır.
           </Text>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </MobileScreen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: "#FFF9F2",
+    backgroundColor: "#FFF7ED",
   },
   header: {
-    height: 62,
+    height: 58,
     backgroundColor: "#FF6A00",
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
   },
   backButton: {
     width: 42,
@@ -353,90 +353,82 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     textAlign: "center",
     fontSize: 17,
-    fontWeight: "800",
+    fontWeight: "900",
   },
   headerSpacer: {
     width: 42,
   },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    padding: 18,
-    paddingBottom: 34,
+  mobileContent: {
+    paddingTop: 14,
+    paddingBottom: 28,
   },
   heroCard: {
-    borderRadius: 28,
+    borderRadius: 24,
     backgroundColor: "#FFFFFF",
-    padding: 18,
+    padding: 15,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#FFE1C4",
     shadowColor: "#FF6A00",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2,
   },
   heroTextArea: {
     flex: 1,
   },
   heroTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "900",
     color: "#312820",
   },
   heroSubtitle: {
-    marginTop: 6,
-    fontSize: 13,
-    lineHeight: 19,
+    marginTop: 5,
+    fontSize: 12.5,
+    lineHeight: 18,
     color: "#8E7F72",
   },
   breadEmoji: {
-    fontSize: 58,
-    marginLeft: 12,
+    fontSize: 46,
+    marginLeft: 10,
   },
   counterCard: {
-    marginTop: 18,
+    marginTop: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 22,
+    gap: 20,
   },
   counterButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
     borderColor: "#FFE1C4",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 2,
   },
   countText: {
-    minWidth: 42,
+    minWidth: 40,
     textAlign: "center",
-    fontSize: 28,
+    fontSize: 27,
     fontWeight: "900",
     color: "#312820",
   },
   sectionLabel: {
-    marginTop: 24,
-    marginBottom: 10,
-    fontSize: 14,
+    marginTop: 18,
+    marginBottom: 8,
+    fontSize: 13,
     fontWeight: "900",
     color: "#3A3028",
   },
   loadingCard: {
-    borderRadius: 22,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
-    padding: 18,
+    padding: 16,
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#F1E2D4",
@@ -444,72 +436,72 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 8,
     color: "#8E7F72",
-    fontSize: 13,
+    fontSize: 12.5,
   },
   emptyCard: {
-    borderRadius: 22,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
-    padding: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: "#F1E2D4",
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "900",
     color: "#312820",
   },
   emptyText: {
     marginTop: 5,
-    fontSize: 13,
+    fontSize: 12.5,
     color: "#8E7F72",
   },
   productGrid: {
-    gap: 10,
+    gap: 9,
   },
   productCard: {
-    minHeight: 70,
-    borderRadius: 22,
+    minHeight: 64,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#F1E2D4",
-    padding: 14,
+    padding: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 11,
   },
   productCardActive: {
     borderColor: "#FF7A18",
     backgroundColor: "#FFF3E7",
   },
   productIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 15,
     backgroundColor: "#FFE9D2",
     alignItems: "center",
     justifyContent: "center",
   },
   productEmoji: {
-    fontSize: 24,
+    fontSize: 22,
   },
   productName: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "900",
     color: "#312820",
   },
   productPrice: {
-    marginTop: 3,
-    fontSize: 13,
+    marginTop: 2,
+    fontSize: 12.5,
     fontWeight: "800",
     color: "#FF6A00",
   },
   bakeryCard: {
-    minHeight: 92,
-    borderRadius: 22,
+    minHeight: 82,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
     borderColor: "#FFB477",
-    padding: 14,
+    padding: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -518,93 +510,93 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 11,
   },
   bakeryIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 15,
     backgroundColor: "#FFF0DF",
     alignItems: "center",
     justifyContent: "center",
   },
   bakeryName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "900",
     color: "#312820",
   },
   bakeryAddress: {
-    marginTop: 4,
-    fontSize: 12,
-    lineHeight: 17,
+    marginTop: 3,
+    fontSize: 11.5,
+    lineHeight: 16,
     color: "#8E7F72",
   },
   distanceText: {
-    marginTop: 4,
-    fontSize: 12,
+    marginTop: 3,
+    fontSize: 11.5,
     fontWeight: "800",
     color: "#FF6A00",
   },
   noteCard: {
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#F1E2D4",
+    padding: 12,
+  },
+  noteInput: {
+    minHeight: 62,
+    textAlignVertical: "top",
+    fontSize: 13,
+    lineHeight: 18,
+    color: "#3A3028",
+    padding: 0,
+  },
+  noteCounter: {
+    marginTop: 6,
+    textAlign: "right",
+    fontSize: 11.5,
+    color: "#9B9088",
+  },
+  summaryCard: {
+    marginTop: 16,
     borderRadius: 22,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#F1E2D4",
     padding: 14,
   },
-  noteInput: {
-    minHeight: 76,
-    textAlignVertical: "top",
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#3A3028",
-    padding: 0,
-  },
-  noteCounter: {
-    marginTop: 8,
-    textAlign: "right",
-    fontSize: 12,
-    color: "#9B9088",
-  },
-  summaryCard: {
-    marginTop: 20,
-    borderRadius: 24,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#F1E2D4",
-    padding: 16,
-  },
   summaryTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "900",
     color: "#312820",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   summaryRow: {
-    minHeight: 30,
+    minHeight: 28,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 16,
+    gap: 14,
   },
   summaryLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: "#8E7F72",
   },
   summaryValue: {
     flex: 1,
     textAlign: "right",
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "800",
     color: "#312820",
   },
   divider: {
     height: 1,
     backgroundColor: "#F0E4D8",
-    marginVertical: 10,
+    marginVertical: 9,
   },
   totalLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "900",
     color: "#312820",
   },
@@ -614,35 +606,35 @@ const styles = StyleSheet.create({
     color: "#FF6A00",
   },
   payButton: {
-    marginTop: 18,
-    height: 58,
-    borderRadius: 22,
+    marginTop: 15,
+    height: 54,
+    borderRadius: 20,
     backgroundColor: "#FF6A00",
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#FF6A00",
-    shadowOpacity: 0.24,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 4,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 3,
   },
   payButtonDisabled: {
     opacity: 0.5,
   },
   payButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "900",
   },
   secureRow: {
-    marginTop: 14,
+    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
   },
   secureText: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: "#9B9088",
   },
 });

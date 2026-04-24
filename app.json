@@ -4,29 +4,37 @@
     "slug": "askida-ekmek",
     "version": "1.0.0",
     "orientation": "portrait",
+
     "icon": "./assets/images/icon.png",
+
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F6E7D0"
+      "backgroundColor": "#FFF7ED"
     },
+
     "scheme": "askidaekmek",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+
     "ios": {
       "supportsTablet": true
     },
+
     "android": {
       "package": "com.askidaekmek.app",
       "adaptiveIcon": {
-        "backgroundColor": "#F7F4EE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFF7ED"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
+
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+
     "plugins": [
       [
         "expo-build-properties",
@@ -38,6 +46,7 @@
       ],
       "expo-web-browser"
     ],
+
     "extra": {
       "eas": {
         "projectId": "7e756c9f-244d-4409-b5b6-ba2c3b80f334"

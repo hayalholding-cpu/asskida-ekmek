@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
 
 function formatNow() {
   try {
@@ -30,9 +31,7 @@ export default function Basarili() {
   const bakeryName =
     typeof params.bakeryName === "string" ? params.bakeryName : "Fırın";
 
-  const district =
-    typeof params.district === "string" ? params.district : "";
-
+  const district = typeof params.district === "string" ? params.district : "";
   const neighborhood =
     typeof params.neighborhood === "string" ? params.neighborhood : "";
 
@@ -49,12 +48,11 @@ export default function Basarili() {
     typeof params.totalPrice === "string" ? Number(params.totalPrice) || 0 : 0;
 
   const note = typeof params.note === "string" ? params.note : "";
-
   const createdAt = formatNow();
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: "#FAF7F2" }}
+      style={{ flex: 1, backgroundColor: "#F0FDF4" }}
       contentContainerStyle={{
         padding: 20,
         paddingBottom: 36,
@@ -66,85 +64,77 @@ export default function Basarili() {
       <View
         style={{
           backgroundColor: "#FFFFFF",
-          borderRadius: 26,
+          borderRadius: 30,
           padding: 24,
           alignItems: "center",
+          borderWidth: 1,
+          borderColor: "#DCFCE7",
         }}
       >
         <View
           style={{
-            width: 84,
-            height: 84,
-            borderRadius: 42,
-            backgroundColor: "#FFF0E2",
+            width: 92,
+            height: 92,
+            borderRadius: 46,
+            backgroundColor: "#16A34A",
             alignItems: "center",
             justifyContent: "center",
+            shadowColor: "#16A34A",
+            shadowOpacity: 0.32,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: 8,
           }}
         >
-          <Text
-            style={{
-              fontSize: 36,
-              fontWeight: "800",
-              color: "#F57C00",
-            }}
-          >
-            ✓
-          </Text>
+          <Ionicons name="checkmark" size={52} color="#FFFFFF" />
         </View>
 
         <Text
           style={{
-            marginTop: 18,
-            fontSize: 24,
-            fontWeight: "800",
-            color: "#2B211B",
+            marginTop: 20,
+            fontSize: 26,
+            fontWeight: "900",
+            color: "#14532D",
+            textAlign: "center",
           }}
         >
-          İşlem Tamamlandı
+          İşlem Başarıyla Tamamlandı
         </Text>
 
         <Text
           style={{
             marginTop: 8,
-            fontSize: 14,
-            lineHeight: 21,
+            fontSize: 15,
+            lineHeight: 22,
             textAlign: "center",
-            color: "#7A6E66",
+            color: "#4B6353",
           }}
         >
           {count} adet {productName.toLocaleLowerCase("tr-TR")} {bakeryName} için
           askıya bırakıldı.
         </Text>
 
-        <Text
-          style={{
-            marginTop: 8,
-            fontSize: 13,
-            lineHeight: 19,
-            textAlign: "center",
-            color: "#9A8F87",
-          }}
-        >
-          Sistem kaydı alındı. Uygun durumda ihtiyaç sahiplerine ulaştırılacaktır.
-        </Text>
-
         <View
           style={{
-            marginTop: 18,
-            backgroundColor: "#FFF0E2",
+            marginTop: 16,
+            backgroundColor: "#DCFCE7",
             borderRadius: 999,
-            paddingHorizontal: 14,
-            paddingVertical: 8,
+            paddingHorizontal: 16,
+            paddingVertical: 9,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
           }}
         >
+          <Ionicons name="shield-checkmark" size={16} color="#15803D" />
           <Text
             style={{
               fontSize: 12,
-              fontWeight: "700",
-              color: "#A45700",
+              fontWeight: "900",
+              color: "#15803D",
             }}
           >
-            ✔ Sistem kaydı alındı
+            Sistem kaydı güvenle alındı
           </Text>
         </View>
 
@@ -152,92 +142,45 @@ export default function Basarili() {
           style={{
             marginTop: 24,
             width: "100%",
-            backgroundColor: "#FAF7F2",
-            borderRadius: 20,
+            backgroundColor: "#F7FAF7",
+            borderRadius: 22,
             padding: 16,
+            borderWidth: 1,
+            borderColor: "#E5F3E8",
           }}
         >
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginTop: 2,
-            }}
-          >
-            <Text style={{ color: "#7A6E66" }}>Fırın</Text>
-            <Text style={{ fontWeight: "700", color: "#2B211B" }}>
-              {bakeryName}
-            </Text>
-          </View>
-
-          {!!district || !!neighborhood ? (
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginTop: 12,
-              }}
-            >
-              <Text style={{ color: "#7A6E66" }}>Konum</Text>
-              <Text style={{ fontWeight: "700", color: "#2B211B" }}>
-                {[district, neighborhood].filter(Boolean).join(" / ")}
-              </Text>
-            </View>
-          ) : null}
-
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginTop: 12,
-            }}
-          >
-            <Text style={{ color: "#7A6E66" }}>Ürün</Text>
-            <Text style={{ fontWeight: "700", color: "#2B211B" }}>
-              {productName}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginTop: 12,
-            }}
-          >
-            <Text style={{ color: "#7A6E66" }}>Adet</Text>
-            <Text style={{ fontWeight: "700", color: "#2B211B" }}>
-              {count}
-            </Text>
-          </View>
-
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              marginTop: 12,
-            }}
-          >
-            <Text style={{ color: "#7A6E66" }}>Toplam</Text>
-            <Text style={{ fontWeight: "800", color: "#F57C00" }}>
-              {totalPrice} ₺
-            </Text>
-          </View>
-
-          {!!createdAt ? (
-            <View
-              style={{
-                flexDirection: "row",
-                justifyContent: "space-between",
-                marginTop: 12,
-              }}
-            >
-              <Text style={{ color: "#7A6E66" }}>İşlem zamanı</Text>
-              <Text style={{ fontWeight: "700", color: "#2B211B" }}>
-                {createdAt}
-              </Text>
-            </View>
-          ) : null}
+          {[
+            ["Fırın", bakeryName],
+            ["Konum", [district, neighborhood].filter(Boolean).join(" / ")],
+            ["Ürün", productName],
+            ["Adet", String(count)],
+            ["Toplam", `${totalPrice} ₺`],
+            ["İşlem zamanı", createdAt],
+          ]
+            .filter(([, value]) => !!value)
+            .map(([label, value]) => (
+              <View
+                key={label}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  marginTop: label === "Fırın" ? 0 : 12,
+                  gap: 12,
+                }}
+              >
+                <Text style={{ color: "#6B7B70" }}>{label}</Text>
+                <Text
+                  style={{
+                    flex: 1,
+                    textAlign: "right",
+                    fontWeight: label === "Toplam" ? "900" : "800",
+                    color: label === "Toplam" ? "#15803D" : "#163827",
+                  }}
+                >
+                  {value}
+                </Text>
+              </View>
+            ))}
         </View>
 
         {!!note ? (
@@ -245,27 +188,20 @@ export default function Basarili() {
             style={{
               marginTop: 18,
               width: "100%",
-              backgroundColor: "#FAF7F2",
+              backgroundColor: "#F7FAF7",
               borderRadius: 20,
               padding: 16,
             }}
           >
-            <Text
-              style={{
-                fontSize: 14,
-                fontWeight: "700",
-                color: "#2B211B",
-              }}
-            >
+            <Text style={{ fontSize: 14, fontWeight: "800", color: "#163827" }}>
               Notun
             </Text>
-
             <Text
               style={{
                 marginTop: 8,
                 fontSize: 14,
                 lineHeight: 20,
-                color: "#7A6E66",
+                color: "#6B7B70",
               }}
             >
               {note}
@@ -290,20 +226,14 @@ export default function Basarili() {
           style={{
             marginTop: 24,
             width: "100%",
-            backgroundColor: "#FFF0E2",
+            backgroundColor: "#DCFCE7",
             borderRadius: 20,
             paddingVertical: 16,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Text
-            style={{
-              color: "#A45700",
-              fontSize: 15,
-              fontWeight: "800",
-            }}
-          >
+          <Text style={{ color: "#15803D", fontSize: 15, fontWeight: "900" }}>
             Aynı fırına tekrar bırak
           </Text>
         </TouchableOpacity>
@@ -313,20 +243,14 @@ export default function Basarili() {
           style={{
             marginTop: 12,
             width: "100%",
-            backgroundColor: "#F57C00",
+            backgroundColor: "#16A34A",
             borderRadius: 20,
             paddingVertical: 18,
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Text
-            style={{
-              color: "#FFFFFF",
-              fontSize: 16,
-              fontWeight: "800",
-            }}
-          >
+          <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "900" }}>
             Ana Sayfaya Dön
           </Text>
         </TouchableOpacity>
