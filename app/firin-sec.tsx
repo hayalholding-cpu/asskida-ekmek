@@ -348,7 +348,7 @@ export default function FirinSec() {
             activeOpacity={0.92}
             onPress={() =>
               router.push({
-                pathname: "/urun-birak",
+               pathname: "/(tabs)/urun-birak",
                 params: {
                   bakeryId: bakery.id,
                   id: bakery.id,
