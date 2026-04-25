@@ -134,7 +134,7 @@ export default function FirinSec() {
 
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 22, fontWeight: "900", color: "#2B211B" }}>
-            Fırın Seç
+            Fırın Seç 
           </Text>
           <Text style={{ fontSize: 12, color: "#7A6E66" }}>
             Askıya ekmek bırakacağın fırını seç
@@ -164,42 +164,61 @@ export default function FirinSec() {
       </View>
 
       {/* DISTRICTS */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: 2 }}
-      >
-        {districts.map((item) => {
-          const active = district === item;
+<View style={{ height: 48, marginTop: 10, flexGrow: 0 }}>
+  <ScrollView
+    horizontal
+    showsHorizontalScrollIndicator={false}
+    style={{ height: 48, maxHeight: 48, flexGrow: 0 }}
+    contentContainerStyle={{
+      height: 48,
+      maxHeight: 48,
+      alignItems: "center",
+      paddingRight: 8,
+      flexGrow: 0,
+    }}
+  >
+    {districts.map((item) => {
+      const active = district === item;
 
-          return (
-            <TouchableOpacity
-              key={item}
-              onPress={() => setDistrict(item)}
-              activeOpacity={0.85}
-              style={{
-                marginRight: 8,
-                paddingHorizontal: 12,
-                paddingVertical: 7,
-                borderRadius: 999,
-                backgroundColor: active ? "#F97316" : "#FFFFFF",
-                borderWidth: 1,
-                borderColor: active ? "#F97316" : "#F2E4D8",
-              }}
-            >
-              <Text
-                style={{
-                  color: active ? "#FFF" : "#5A4F49",
-                  fontWeight: "800",
-                  fontSize: 12,
-                }}
-              >
-                {item}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      return (
+        <TouchableOpacity
+          key={item}
+          onPress={() => setDistrict(item)}
+          activeOpacity={0.85}
+          style={{
+            marginRight: 8,
+            height: 34,
+            minHeight: 34,
+            maxHeight: 34,
+            paddingHorizontal: 14,
+            paddingVertical: 0,
+            borderRadius: 999,
+            backgroundColor: active ? "#F97316" : "#FFFFFF",
+            borderWidth: 1,
+            borderColor: active ? "#F97316" : "#F2E4D8",
+            alignItems: "center",
+            justifyContent: "center",
+            flexGrow: 0,
+            flexShrink: 0,
+            alignSelf: "center",
+          }}
+        >
+          <Text
+            numberOfLines={1}
+            style={{
+              color: active ? "#FFF" : "#5A4F49",
+              fontWeight: "800",
+              fontSize: 12,
+              lineHeight: 14,
+            }}
+          >
+            {item}
+          </Text>
+        </TouchableOpacity>
+      );
+    })}
+  </ScrollView>
+</View>
 
       {/* LIST */}
       {loading ? (
