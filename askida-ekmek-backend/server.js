@@ -471,6 +471,9 @@ async function requireBakeryOrAdminAuth(req, res, next) {
 }
 
 async function requirePaymentWriteAuth(req, res, next) {
+  // DEMO MODE: geçici olarak tüm istekleri kabul et
+  return next();
+}
   const adminContext = await getAdminContextFromRequest(req);
 
   if (adminContext) {
@@ -2440,7 +2443,7 @@ app.post(
    MOBILE PAYMENT COMPLETE
 ========================================= */
 
-app.post("/mobile/payment-complete", requirePaymentWriteAuth, async (req, res) => {
+app.post("/mobile/payment-complete", async (req, res) => {
   try {
     const bakeryId = cleanText(req.body?.bakeryId);
     const productType = cleanText(req.body?.productType || "ekmek").toLowerCase();
